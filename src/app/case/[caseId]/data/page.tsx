@@ -15,6 +15,8 @@ import {
 import { useCaseStore } from "@/state/case-store";
 import { useReviewStore } from "@/state/review-store";
 import { buildPatches } from "@/lib/integrations/mapping";
+import { aggregateTransactionsToItems } from "@/lib/integrations/tellerAggregate";
+import type { ExtractedDoc } from "@/lib/integrations/types";
 import { IntegrationsPanel } from "@/components/case/IntegrationsPanel";
 
 const PAGE_SIZE = 50;
@@ -79,9 +81,26 @@ export default function CaseDataPage({
   }
 
   const onReimport = () => {
-    if (!record.bankData) return;
-    const doc = record.bankData.doc;
+    // Read fresh from the store (avoids any stale-closure issues) and always
+    // re-aggregate transactions so re-imports reflect the current mapping
+    // logic, even for docs persisted by older code versions.
+    const fresh = useCaseStore.getState().cases[caseId]?.bankData?.doc;
+    if (!fresh) return;
+    const accountItems = (fresh.items ?? []).filter(
+      (i) => i.kind !== "monthlyScalar" && i.kind !== "monthlyOtherIncome"
+    );
+    const aggregates = aggregateTransactionsToItems(fresh.transactions ?? []);
+    const doc: ExtractedDoc = {
+      ...fresh,
+      items: [...accountItems, ...aggregates],
+    };
     const patches = buildPatches(doc);
+    if (patches.length === 0) {
+      alert(
+        "No patches generated. The saved data may be missing accounts and transactions — re-run the bank pull from the connect button above."
+      );
+      return;
+    }
     setBundle(caseId, { doc, patches });
     router.push(`/case/${caseId}/review`);
   };
