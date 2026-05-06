@@ -2,12 +2,12 @@
 
 declare global {
   // eslint-disable-next-line no-var
-  var __PLAID_TOKENS__: Map<string, string> | undefined;
+  var __TELLER_TOKENS__: Map<string, string> | undefined;
 }
 
 function store(): Map<string, string> {
-  if (!globalThis.__PLAID_TOKENS__) globalThis.__PLAID_TOKENS__ = new Map();
-  return globalThis.__PLAID_TOKENS__;
+  if (!globalThis.__TELLER_TOKENS__) globalThis.__TELLER_TOKENS__ = new Map();
+  return globalThis.__TELLER_TOKENS__;
 }
 
 export function setAccessToken(caseId: string, token: string): void {

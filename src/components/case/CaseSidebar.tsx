@@ -12,6 +12,9 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
   if (!record) return null;
   const ids = FORM_ORDER[record.chapter];
 
+  const txCount = record.bankData?.doc.transactions?.length ?? 0;
+  const dataHref = `/case/${caseId}/data`;
+
   return (
     <nav className="space-y-1 text-sm">
       <Link
@@ -22,6 +25,25 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
         )}
       >
         Overview
+      </Link>
+      <Link
+        href={dataHref}
+        className={cn(
+          "flex items-center justify-between gap-2 rounded-md px-3 py-2 hover:bg-accent",
+          pathname === dataHref && "bg-accent font-medium"
+        )}
+      >
+        <span className="truncate">Data</span>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+            txCount === 0
+              ? "bg-muted text-muted-foreground"
+              : "bg-emerald-100 text-emerald-900"
+          )}
+        >
+          {txCount === 0 ? "Empty" : `${txCount} tx`}
+        </span>
       </Link>
       <p className="px-3 pt-4 pb-1 text-xs uppercase tracking-wide text-muted-foreground">
         Forms & schedules

@@ -15,19 +15,19 @@ and `src/components/form-renderer/`.
 ### Pipeline
 
 ```
-[Upload PDF]   ─┐
-                ├─►  /api/extract  ──►  Claude (PDF → JSON)  ──┐
-[Plaid Link]   ─┘                                              ├─►  ExtractedDoc
-                                                               │
-                /api/plaid/pull  ──►  accounts + liabilities ──┘
-                                                               │
-                                                               ▼
+[Upload PDF]      ─┐
+                   ├─►  /api/extract  ──►  Claude (PDF → JSON)  ──┐
+[Teller Connect]  ─┘                                              ├─►  ExtractedDoc
+                                                                  │
+                   /api/teller/pull  ──►  accounts + balances  ───┘
+                                                                  │
+                                                                  ▼
                                           buildPatches(doc)  ──►  FormPatch[]
-                                                               │
-                                                               ▼
+                                                                  │
+                                                                  ▼
                                           /case/[id]/review  (human approval)
-                                                               │
-                                                               ▼
+                                                                  │
+                                                                  ▼
                                           case-store: setFieldValue / appendRepeatingItem
 ```
 
@@ -36,18 +36,18 @@ and `src/components/form-renderer/`.
 **Server routes** (`src/app/api/`)
 - `upload/route.ts` — multipart upload, in-memory store, returns `docId`
 - `extract/route.ts` — `{ docId } → { extracted, patches }` via Claude PDF
-- `plaid/link-token/route.ts` — creates a Plaid Link token
-- `plaid/exchange/route.ts` — `public_token → access_token` (server-side)
-- `plaid/pull/route.ts` — pulls accounts + liabilities for a case
+- `teller/enroll/route.ts` — stores the `access_token` returned by Teller
+  Connect (client-side) for later API calls
+- `teller/pull/route.ts` — pulls accounts + balances for a case
 
 **Lib** (`src/lib/integrations/`)
 - `types.ts` — `ExtractedDoc`, `FormPatch`, normalized item kinds
 - `redact.ts` — strips SSN / cards / accounts / routing / email; preserves last 4
 - `mapping.ts` — `buildPatches(doc)` → patches keyed to schema field IDs
 - `extractor.ts` — Claude `messages.create` with PDF document block
-- `plaidClient.ts`, `plaidPull.ts`, `plaidTokens.ts` — Plaid client + pull
+- `tellerClient.ts`, `tellerPull.ts`, `tellerTokens.ts` — Teller HTTP client + pull
 - `store.ts` — in-memory uploaded-doc store
-- `demoMode.ts` — `isDemoMode`, `isAnthropicConfigured`, `isPlaidConfigured`
+- `demoMode.ts` — `isDemoMode`, `isAnthropicConfigured`, `isTellerConfigured`
 
 **Client**
 - `state/review-store.ts` — zustand bundle keyed by caseId
@@ -89,12 +89,22 @@ DEMO_MODE=false       # require real keys
 | Key | Required for | Where to get | Env var |
 |---|---|---|---|
 | Anthropic API key | Claude PDF extraction | https://console.anthropic.com/settings/keys | `ANTHROPIC_API_KEY` |
-| Plaid sandbox client_id + secret | Bank connections (free) | https://dashboard.plaid.com/signup | `PLAID_CLIENT_ID`, `PLAID_SECRET` |
+| Teller application ID | Bank connections (free sandbox) | https://teller.io/dashboard | `NEXT_PUBLIC_TELLER_APPLICATION_ID` |
 
-Optional Plaid env vars (defaults shown):
-- `PLAID_ENV=sandbox`
-- `PLAID_PRODUCTS=auth,liabilities,assets,transactions`
-- `PLAID_COUNTRY_CODES=US`
+Optional Teller env vars (defaults shown):
+- `NEXT_PUBLIC_TELLER_ENVIRONMENT=sandbox` — `sandbox` / `development` / `production`
+- `TELLER_CERT_PATH=` — PEM client cert (required for `development` + `production`)
+- `TELLER_KEY_PATH=` — PEM client key (required for `development` + `production`)
+- `TELLER_TRANSACTION_MONTHS=6` — how many months of statement history to pull
+  per depository account (max 12). Many banks only return ~90 days, so longer
+  windows can be partial.
+
+Teller Connect runs entirely client-side and returns the `access_token`
+directly to the browser — there is no server-side public-token exchange like
+Plaid. The token is POSTed to `/api/teller/enroll` and used server-side to
+call `https://api.teller.io/*` (HTTP Basic auth, token as username, empty
+password). Production + development calls additionally require mTLS using
+the cert/key above.
 
 Copy `.env.local.example` → `.env.local` to start.
 
@@ -104,21 +114,21 @@ Copy `.env.local.example` → `.env.local` to start.
 
 ### Blocking for production
 
-1. **Real Plaid Link UI.** The "Connect bank" button currently skips Plaid Link
-   and goes straight to the mock branch via a fake `public_token`. To wire
-   real Link: use `react-plaid-link` (already installed) to fetch a token
-   from `/api/plaid/link-token`, render the Link button, then POST the
-   `public_token` from `onSuccess` to `/api/plaid/exchange`.
-   _~30 lines, in `src/components/case/IntegrationsPanel.tsx`._
+1. **Real Teller Connect UI.** Wired up — when
+   `NEXT_PUBLIC_TELLER_APPLICATION_ID` is set the panel loads
+   `cdn.teller.io/connect/connect.js` and opens the real Connect modal. With no
+   applicationId, the "Connect bank" button skips Connect and uses a
+   `demo-access-token` to hit the mock branch. mTLS for development /
+   production still needs `TELLER_CERT_PATH` + `TELLER_KEY_PATH`.
 
 2. **Persistent storage.** Both stores are `Map`s on `globalThis` and reset on
    every dev-server restart:
    - Uploaded doc bytes — `src/lib/integrations/store.ts`
-   - Plaid access tokens — `src/lib/integrations/plaidTokens.ts`
+   - Teller access tokens — `src/lib/integrations/tellerTokens.ts`
    Replace with S3 / Vercel Blob (docs) and a real DB / encrypted KV (tokens).
 
 3. **Auth + multi-tenant.** Everything keys off `caseId` from `localStorage`.
-   No users, no isolation. Plaid access tokens are stored unencrypted by
+   No users, no isolation. Teller access tokens are stored unencrypted by
    `caseId` — anyone with the caseId can pull the bank data. Production needs
    real auth, encrypted-at-rest tokens, and access-control checks on every
    route.
@@ -153,10 +163,18 @@ Copy `.env.local.example` → `.env.local` to start.
    surface them in the review UI so reviewers can prioritize low-confidence
    rows.
 
-10. **Plaid `transactions` → SOFA Part 2.** Already pulled; not yet mapped to
-    `form-107` income sources.
+10. **Teller `transactions` → schedules.** Transactions are now pulled (last
+    `TELLER_TRANSACTION_MONTHS`, default 6) and shown on the review page with
+    inflow/outflow summary. They are *not* auto-mapped to a schedule yet —
+    candidates: means-test (122A-1) average monthly income, Schedule I/J
+    income + expenses, SOFA Part 2 income sources.
 
-11. **PDF rendering of the official forms.** Out of this lane but worth
+11. **No structured liabilities from Teller.** Unlike Plaid, Teller doesn't
+    expose a structured `mortgage` / `student_loan` breakdown — only
+    `depository` and `credit` accounts. Mortgages and student loans need to
+    come from uploaded statements (Claude extraction) or manual entry.
+
+12. **PDF rendering of the official forms.** Out of this lane but worth
     flagging — JSON export round-trips, but there's no PDF output for any
     schedule.
 
@@ -182,7 +200,7 @@ npm run dev
 **To run with real keys:**
 ```bash
 cp .env.local.example .env.local
-# fill in ANTHROPIC_API_KEY and PLAID_CLIENT_ID / PLAID_SECRET
+# fill in ANTHROPIC_API_KEY and NEXT_PUBLIC_TELLER_APPLICATION_ID
 nvm use 22
 npm install
 npm run dev

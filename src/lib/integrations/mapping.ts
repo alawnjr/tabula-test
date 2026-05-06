@@ -170,6 +170,43 @@ function mapItem(
         },
       ];
 
+    case "monthlyScalar":
+      return [
+        {
+          id: newPatchId(),
+          formId: item.formId,
+          op: { kind: "setField", path: [item.fieldId], value: item.amount },
+          label: `Set ${item.formId} ${item.fieldId}: $${item.amount.toFixed(
+            2
+          )} — ${item.description}`,
+          source,
+          sourceLabel,
+        },
+      ];
+
+    case "monthlyOtherIncome":
+      return [
+        {
+          id: newPatchId(),
+          formId: "106I",
+          op: {
+            kind: "appendGroup",
+            groupId: "otherIncome",
+            fields: {
+              type: item.type,
+              description: item.description,
+              debtor1Amount: item.debtor1Amount,
+              debtor2Amount: 0,
+            },
+          },
+          label: `Add other income (${item.type}): $${item.debtor1Amount.toFixed(
+            2
+          )}/mo — ${item.description}`,
+          source,
+          sourceLabel,
+        },
+      ];
+
     case "payStub": {
       const prefix = item.debtor === 2 ? "d2" : "d1";
       const empPrefix = item.debtor === 2 ? "debtor2" : "debtor1";

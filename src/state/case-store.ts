@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { ChapterId } from "@/lib/schemas/types";
+import type { ExtractedDoc } from "@/lib/integrations/types";
 
 export type FieldValue =
   | string
@@ -15,6 +16,13 @@ export type FieldValue =
 
 export type FormData = Record<string, FieldValue>;
 
+// Persisted bank-pull payload — saved verbatim so the user can re-run the
+// import without re-authenticating with Teller.
+export type PersistedBankData = {
+  doc: ExtractedDoc;
+  savedAt: string;
+};
+
 export type CaseRecord = {
   id: string;
   chapter: ChapterId;
@@ -22,6 +30,7 @@ export type CaseRecord = {
   createdAt: string;
   updatedAt: string;
   forms: Record<string, FormData>;
+  bankData?: PersistedBankData;
 };
 
 type CaseStore = {
@@ -35,6 +44,9 @@ type CaseStore = {
   setFieldValue: (formId: string, path: string[], value: FieldValue) => void;
   appendRepeatingItem: (formId: string, groupId: string) => void;
   removeRepeatingItem: (formId: string, groupId: string, index: number) => void;
+
+  setBankData: (caseId: string, doc: ExtractedDoc) => void;
+  clearBankData: (caseId: string) => void;
 
   exportCase: (id: string) => string;
   importCase: (json: string) => string;
@@ -203,6 +215,33 @@ export const useCaseStore = create<CaseStore>()(
               ...s.cases,
               [id]: { ...c, forms: newForms, updatedAt: nowIso() },
             },
+          };
+        }),
+
+      setBankData: (caseId, doc) =>
+        set((s) => {
+          const c = s.cases[caseId];
+          if (!c) return s;
+          return {
+            cases: {
+              ...s.cases,
+              [caseId]: {
+                ...c,
+                bankData: { doc, savedAt: nowIso() },
+                updatedAt: nowIso(),
+              },
+            },
+          };
+        }),
+
+      clearBankData: (caseId) =>
+        set((s) => {
+          const c = s.cases[caseId];
+          if (!c) return s;
+          const { bankData: _, ...rest } = c;
+          void _;
+          return {
+            cases: { ...s.cases, [caseId]: { ...rest, updatedAt: nowIso() } },
           };
         }),
 

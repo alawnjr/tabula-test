@@ -5,7 +5,6 @@ import { use } from "react";
 import { useCaseStore } from "@/state/case-store";
 import { FORM_ORDER, getSchema } from "@/lib/schemas";
 import { SummaryView } from "@/components/case/SummaryView";
-import { IntegrationsPanel } from "@/components/case/IntegrationsPanel";
 
 export default function CaseOverviewPage({
   params,
@@ -27,8 +26,6 @@ export default function CaseOverviewPage({
           {record.debtorName || "Untitled debtor"}
         </h1>
       </header>
-
-      <IntegrationsPanel caseId={caseId} />
 
       <SummaryView />
 

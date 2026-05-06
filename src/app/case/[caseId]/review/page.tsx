@@ -16,7 +16,40 @@ import {
 import { useReviewStore } from "@/state/review-store";
 import { useCaseStore } from "@/state/case-store";
 import { getSchema } from "@/lib/schemas";
-import type { FormPatch } from "@/lib/integrations/types";
+import type { BankTransaction, FormPatch } from "@/lib/integrations/types";
+
+function formatCurrency(amount: number): string {
+  return amount.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  });
+}
+
+function summarizeTransactions(txs: BankTransaction[]): {
+  inflow: number;
+  outflow: number;
+  monthlyAvgIn: number;
+  monthlyAvgOut: number;
+  monthCount: number;
+} {
+  let inflow = 0;
+  let outflow = 0;
+  const months = new Set<string>();
+  for (const t of txs) {
+    if (t.amount >= 0) inflow += t.amount;
+    else outflow += -t.amount;
+    months.add(t.date.slice(0, 7));
+  }
+  const monthCount = Math.max(1, months.size);
+  return {
+    inflow,
+    outflow,
+    monthlyAvgIn: inflow / monthCount,
+    monthlyAvgOut: outflow / monthCount,
+    monthCount,
+  };
+}
 
 export default function ReviewPage({
   params,
@@ -40,6 +73,17 @@ export default function ReviewPage({
     }
     return out;
   }, [bundle]);
+
+  const transactions = useMemo(
+    () => bundle?.doc.transactions ?? [],
+    [bundle]
+  );
+  const txWindow = bundle?.doc.transactionWindow;
+  const txSummary = useMemo(
+    () => (transactions.length ? summarizeTransactions(transactions) : null),
+    [transactions]
+  );
+  const recentTransactions = useMemo(() => transactions.slice(0, 10), [transactions]);
 
   if (!bundle) {
     return (
@@ -132,6 +176,89 @@ export default function ReviewPage({
           </Button>
         </div>
       </div>
+
+      {txSummary ? (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">
+                Bank transactions ({transactions.length})
+              </CardTitle>
+              {txWindow ? (
+                <Badge variant="secondary">
+                  {txWindow.fromISO} → {txWindow.toISO}
+                </Badge>
+              ) : null}
+            </div>
+            <CardDescription>
+              Pulled from connected accounts. Use these for the means test
+              (122A-1) and Schedules I/J — not auto-applied.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Total inflow</p>
+                <p className="font-medium">{formatCurrency(txSummary.inflow)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total outflow</p>
+                <p className="font-medium">{formatCurrency(txSummary.outflow)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Avg monthly in ({txSummary.monthCount} mo)
+                </p>
+                <p className="font-medium">{formatCurrency(txSummary.monthlyAvgIn)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Avg monthly out</p>
+                <p className="font-medium">{formatCurrency(txSummary.monthlyAvgOut)}</p>
+              </div>
+            </div>
+            {recentTransactions.length ? (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Most recent
+                </p>
+                <ul className="divide-y divide-border text-sm">
+                  {recentTransactions.map((t, i) => (
+                    <li
+                      key={`${t.accountId}-${t.date}-${i}`}
+                      className="flex items-center justify-between gap-3 py-1.5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate">{t.description}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t.date}
+                          {t.accountLast4 ? ` · ***${t.accountLast4}` : ""}
+                          {t.category ? ` · ${t.category}` : ""}
+                          {t.status === "pending" ? " · pending" : ""}
+                        </p>
+                      </div>
+                      <p
+                        className={
+                          t.amount >= 0
+                            ? "font-medium text-emerald-600"
+                            : "font-medium text-foreground"
+                        }
+                      >
+                        {formatCurrency(t.amount)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+                {transactions.length > recentTransactions.length ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    + {transactions.length - recentTransactions.length} more
+                    transactions in pull
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {Object.entries(groupedByForm).map(([formId, patches]) => {
         const schema = getSchema(formId);

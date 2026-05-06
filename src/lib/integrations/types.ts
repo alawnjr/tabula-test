@@ -1,7 +1,7 @@
-// Normalized intermediate shape produced by extraction (Claude) or Plaid pulls.
+// Normalized intermediate shape produced by extraction (Claude) or Teller pulls.
 // The mapping layer converts ExtractedDoc → FormPatch[].
 
-export type ExtractionSource = "upload" | "plaid" | "manual";
+export type ExtractionSource = "upload" | "teller" | "manual";
 
 export type DepositAccountItem = {
   kind: "depositAccount";
@@ -75,6 +75,32 @@ export type PayStubItem = {
   otherDeductions?: number;
 };
 
+// Aggregated monthly average derived from N months of bank transactions.
+// Targets a scalar field on Schedule I (income) or Schedule J (expenses).
+export type MonthlyScalarItem = {
+  kind: "monthlyScalar";
+  formId: "106I" | "106J";
+  fieldId: string;
+  amount: number;
+  description: string; // e.g. "Avg of 6 months: 12 transactions, total $7,200"
+};
+
+// Aggregated other-income row → Schedule I "otherIncome" repeating group.
+export type MonthlyOtherIncomeItem = {
+  kind: "monthlyOtherIncome";
+  type:
+    | "businessNet"
+    | "interest"
+    | "familySupport"
+    | "unemployment"
+    | "socialSecurity"
+    | "government"
+    | "pension"
+    | "other";
+  description: string;
+  debtor1Amount: number;
+};
+
 export type ExtractedItem =
   | DepositAccountItem
   | SecuredDebtItem
@@ -82,14 +108,31 @@ export type ExtractedItem =
   | RealEstateItem
   | VehicleItem
   | RetirementItem
-  | PayStubItem;
+  | PayStubItem
+  | MonthlyScalarItem
+  | MonthlyOtherIncomeItem;
+
+export type BankTransaction = {
+  accountId: string;
+  accountLast4?: string;
+  date: string; // ISO yyyy-mm-dd
+  description: string;
+  amount: number; // negative = outflow, positive = inflow
+  status: "posted" | "pending";
+  category?: string;
+};
 
 export type ExtractedDoc = {
   source: ExtractionSource;
-  sourceLabel: string; // e.g. "chase-jan-statement.pdf" or "Plaid: Chase Sapphire"
+  sourceLabel: string; // e.g. "chase-jan-statement.pdf" or "Teller: Chase Sapphire"
   extractedAt: string; // ISO timestamp
   items: ExtractedItem[];
   rawSummary?: string; // optional human-readable summary from Claude
+  // Bank statement history. Populated by Teller pull over a configurable
+  // window (default 6 months). Not converted to FormPatches yet — surfaced
+  // on the review page so a human can use them for means-test / Schedule I/J.
+  transactions?: BankTransaction[];
+  transactionWindow?: { fromISO: string; toISO: string };
 };
 
 // One proposed write into the case store. Mapping layer emits these,

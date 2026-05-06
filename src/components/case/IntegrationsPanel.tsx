@@ -1,20 +1,84 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileUp, Banknote, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useReviewStore } from "@/state/review-store";
+import { useCaseStore } from "@/state/case-store";
 import type { ExtractedDoc, FormPatch } from "@/lib/integrations/types";
 
-type Status = "idle" | "uploading" | "extracting" | "plaid" | "error";
+type Status = "idle" | "uploading" | "extracting" | "teller" | "error";
+
+type TellerEnrollment = {
+  accessToken: string;
+  user?: { id: string };
+  enrollment?: { id: string; institution?: { name?: string } };
+};
+
+type TellerConnectInstance = { open: () => void };
+
+type TellerConnectGlobal = {
+  setup: (opts: {
+    applicationId: string;
+    environment?: "sandbox" | "development" | "production";
+    products?: string[];
+    onSuccess: (enrollment: TellerEnrollment) => void;
+    onExit?: () => void;
+  }) => TellerConnectInstance;
+};
+
+declare global {
+  interface Window {
+    TellerConnect?: TellerConnectGlobal;
+  }
+}
+
+const TELLER_SCRIPT_SRC = "https://cdn.teller.io/connect/connect.js";
+
+function loadTellerScript(): Promise<TellerConnectGlobal | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (window.TellerConnect) return Promise.resolve(window.TellerConnect);
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src="${TELLER_SCRIPT_SRC}"]`
+    );
+    const onLoad = () => resolve(window.TellerConnect ?? null);
+    if (existing) {
+      existing.addEventListener("load", onLoad, { once: true });
+      existing.addEventListener("error", () => reject(new Error("Teller script failed")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = TELLER_SCRIPT_SRC;
+    script.async = true;
+    script.onload = onLoad;
+    script.onerror = () => reject(new Error("Teller script failed"));
+    document.body.appendChild(script);
+  });
+}
+
+type TxWindow = 6 | 12;
 
 export function IntegrationsPanel({ caseId }: { caseId: string }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const setBundle = useReviewStore((s) => s.setBundle);
+  const setBankData = useCaseStore((s) => s.setBankData);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [txWindow, setTxWindow] = useState<TxWindow>(6);
+
+  const applicationId = process.env.NEXT_PUBLIC_TELLER_APPLICATION_ID;
+  const environment = (process.env.NEXT_PUBLIC_TELLER_ENVIRONMENT ??
+    "sandbox") as "sandbox" | "development" | "production";
+
+  useEffect(() => {
+    if (!applicationId) return;
+    loadTellerScript().catch(() => {
+      // Non-fatal; the click handler will retry / fall back to demo path.
+    });
+  }, [applicationId]);
 
   const handleFile: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
@@ -55,40 +119,79 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
     }
   };
 
-  const handlePlaid = async () => {
+  const finishConnect = async (accessToken: string, months: TxWindow) => {
+    const enrollRes = await fetch("/api/teller/enroll", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessToken, caseId }),
+    });
+    if (!enrollRes.ok) {
+      const j = await enrollRes.json().catch(() => ({}));
+      throw new Error(j.error ?? `Enroll failed (${enrollRes.status})`);
+    }
+    const pullRes = await fetch("/api/teller/pull", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ caseId, months }),
+    });
+    if (!pullRes.ok) {
+      const j = await pullRes.json().catch(() => ({}));
+      throw new Error(j.error ?? `Teller pull failed (${pullRes.status})`);
+    }
+    const data = (await pullRes.json()) as {
+      extracted: ExtractedDoc;
+      patches: FormPatch[];
+    };
+    if (data.extracted.source === "teller") {
+      setBankData(caseId, data.extracted);
+    }
+    setBundle(caseId, { doc: data.extracted, patches: data.patches });
+    setStatus("idle");
+    router.push(`/case/${caseId}/review`);
+  };
+
+  const handleConnect = async () => {
     setError(null);
-    try {
-      setStatus("plaid");
-      // Demo path: directly exchange a fake token + pull. Real Plaid Link
-      // integration plugs in here when keys are present (see PLAID_*).
-      await fetch("/api/plaid/exchange", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ public_token: "demo-public-token", caseId }),
-      });
-      const pullRes = await fetch("/api/plaid/pull", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId }),
-      });
-      if (!pullRes.ok) {
-        const j = await pullRes.json().catch(() => ({}));
-        throw new Error(j.error ?? `Plaid pull failed (${pullRes.status})`);
+    setStatus("teller");
+    const months = txWindow;
+
+    // Demo fallback: no applicationId configured → skip Teller Connect UI and
+    // hit the mock branch via the special "demo-access-token".
+    if (!applicationId) {
+      try {
+        await finishConnect("demo-access-token", months);
+      } catch (err) {
+        setStatus("error");
+        setError(err instanceof Error ? err.message : String(err));
       }
-      const data = (await pullRes.json()) as {
-        extracted: ExtractedDoc;
-        patches: FormPatch[];
-      };
-      setBundle(caseId, { doc: data.extracted, patches: data.patches });
-      setStatus("idle");
-      router.push(`/case/${caseId}/review`);
+      return;
+    }
+
+    try {
+      const tc = await loadTellerScript();
+      if (!tc) throw new Error("Teller Connect failed to load");
+      const instance = tc.setup({
+        applicationId,
+        environment,
+        products: ["verify", "balance", "transactions"],
+        onSuccess: (enrollment) => {
+          finishConnect(enrollment.accessToken, months).catch((err) => {
+            setStatus("error");
+            setError(err instanceof Error ? err.message : String(err));
+          });
+        },
+        onExit: () => {
+          setStatus((s) => (s === "teller" ? "idle" : s));
+        },
+      });
+      instance.open();
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : String(err));
     }
   };
 
-  const busy = status === "uploading" || status === "extracting" || status === "plaid";
+  const busy = status === "uploading" || status === "extracting" || status === "teller";
 
   return (
     <section className="rounded-lg border border-border bg-card px-4 py-4">
@@ -117,13 +220,47 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
               ? "Extracting…"
               : "Upload document"}
           </Button>
-          <Button size="sm" onClick={handlePlaid} disabled={busy}>
-            {status === "plaid" ? (
+          <div
+            className="inline-flex overflow-hidden rounded-md border border-border text-xs"
+            role="radiogroup"
+            aria-label="Transaction history window"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={txWindow === 6}
+              onClick={() => setTxWindow(6)}
+              disabled={busy}
+              className={`px-2.5 py-1 transition-colors ${
+                txWindow === 6
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              6 mo
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={txWindow === 12}
+              onClick={() => setTxWindow(12)}
+              disabled={busy}
+              className={`px-2.5 py-1 transition-colors ${
+                txWindow === 12
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              1 yr
+            </button>
+          </div>
+          <Button size="sm" onClick={handleConnect} disabled={busy}>
+            {status === "teller" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Banknote className="h-4 w-4" />
             )}
-            {status === "plaid" ? "Connecting…" : "Connect bank"}
+            {status === "teller" ? "Connecting…" : "Connect bank"}
           </Button>
           <input
             ref={fileRef}
