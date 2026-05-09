@@ -39,17 +39,17 @@ export function ImportExport({ caseId }: { caseId?: string }) {
   return (
     <div className="flex items-center gap-2">
       {caseId ? (
-        <Button size="sm" variant="outline" onClick={onExport}>
-          <Download className="h-4 w-4" />
-          Export JSON
+        <Button size="sm" variant="ghost" onClick={onExport}>
+          <Download className="h-3.5 w-3.5" />
+          Export
         </Button>
       ) : null}
       <Button
         size="sm"
-        variant="outline"
+        variant="ghost"
         onClick={() => fileRef.current?.click()}
       >
-        <Upload className="h-4 w-4" />
+        <Upload className="h-3.5 w-3.5" />
         Import JSON
       </Button>
       <input

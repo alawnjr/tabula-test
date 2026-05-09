@@ -6,13 +6,6 @@ import { useRouter } from "next/navigation";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useReviewStore } from "@/state/review-store";
 import { useCaseStore } from "@/state/case-store";
 import { getSchema } from "@/lib/schemas";
@@ -87,11 +80,20 @@ export default function ReviewPage({
 
   if (!bundle) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Nothing to review</h1>
-        <p className="text-sm text-muted-foreground">
-          Upload a document or connect a bank from the case overview to see proposed entries here.
-        </p>
+      <div className="mx-auto max-w-3xl px-4 py-6 lg:px-8 lg:py-8 space-y-4">
+        <header className="space-y-2">
+          <span className="tag">Review queue</span>
+          <h1
+            className="text-[26px] leading-[1.05] tracking-[-0.025em] text-[var(--ink)]"
+            style={{ fontFamily: "var(--serif)" }}
+          >
+            Nothing to review
+          </h1>
+          <p className="max-w-[60ch] text-[13px] text-[var(--mute)]">
+            Upload a document or connect a bank from the case overview to see
+            proposed entries here.
+          </p>
+        </header>
         <Button asChild>
           <Link href={`/case/${caseId}`}>Back to case</Link>
         </Button>
@@ -112,7 +114,6 @@ export default function ReviewPage({
       if (p.op.kind === "setField") {
         setFieldByPath(p.formId, p.op.path, p.op.value);
       } else {
-        // appendGroup: append a fresh row, then write each field by index.
         const formData = useCaseStore.getState().cases[caseId]?.forms[p.formId];
         const existing = Array.isArray(formData?.[p.op.groupId])
           ? (formData![p.op.groupId] as unknown[])
@@ -134,32 +135,34 @@ export default function ReviewPage({
   };
 
   const toggleAll = (value: boolean) => {
-    setAccepted(
-      Object.fromEntries(bundle.patches.map((p) => [p.id, value]))
-    );
+    setAccepted(Object.fromEntries(bundle.patches.map((p) => [p.id, value])));
   };
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-          Review extracted data
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Confirm before autofill
+    <div className="mx-auto max-w-3xl px-4 py-6 lg:px-8 lg:py-8 space-y-6">
+      <header className="space-y-2">
+        <span className="tag">Review queue</span>
+        <h1
+          className="text-[28px] leading-[1.05] tracking-[-0.025em] text-[var(--ink)]"
+          style={{ fontFamily: "var(--serif)" }}
+        >
+          Confirm before <em className="text-[var(--mute)]">autofill.</em>
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Source: <span className="font-medium">{bundle.doc.sourceLabel}</span> · {bundle.patches.length} proposed entries
+        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)]">
+          {bundle.doc.sourceLabel} · {bundle.patches.length} proposed entries
         </p>
         {bundle.doc.rawSummary ? (
-          <p className="mt-2 rounded border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <p
+            className="mt-2 max-w-[70ch] rounded-[3px] border border-[var(--rule-soft)] bg-[var(--paper-2)] px-3 py-2 text-[12.5px] italic text-[var(--ink-2)]"
+            style={{ fontFamily: "var(--serif)" }}
+          >
             {bundle.doc.rawSummary}
           </p>
         ) : null}
       </header>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 border-y border-[var(--rule-soft)] py-2">
+        <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" onClick={() => toggleAll(true)}>
             Select all
           </Button>
@@ -169,140 +172,176 @@ export default function ReviewPage({
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" onClick={onCancel}>
-            <X className="h-4 w-4" /> Discard
+            <X className="h-3 w-3" /> Discard
           </Button>
           <Button onClick={onApply} disabled={acceptedCount === 0}>
-            <Check className="h-4 w-4" /> Apply {acceptedCount} to forms
+            <Check className="h-3 w-3" /> Apply {acceptedCount} to forms
           </Button>
         </div>
       </div>
 
       {txSummary ? (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">
-                Bank transactions ({transactions.length})
-              </CardTitle>
-              {txWindow ? (
-                <Badge variant="secondary">
-                  {txWindow.fromISO} → {txWindow.toISO}
-                </Badge>
-              ) : null}
+        <section className="rounded-[3px] border border-[var(--rule)] bg-[var(--paper-2)]">
+          <header className="flex items-center justify-between border-b border-[var(--rule-soft)] px-4 py-3">
+            <div>
+              <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+                Bank transactions · {transactions.length}
+              </span>
+              <h3
+                className="mt-0.5 text-[15px] tracking-[-0.015em] text-[var(--ink)]"
+                style={{ fontFamily: "var(--serif)" }}
+              >
+                Pulled history
+              </h3>
             </div>
-            <CardDescription>
+            {txWindow ? (
+              <Badge variant="outline">
+                {txWindow.fromISO} → {txWindow.toISO}
+              </Badge>
+            ) : null}
+          </header>
+          <div className="space-y-4 px-4 py-3">
+            <p className="text-[11px] text-[var(--mute)]">
               Pulled from connected accounts. Use these for the means test
               (122A-1) and Schedules I/J — not auto-applied.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-              <div>
-                <p className="text-xs text-muted-foreground">Total inflow</p>
-                <p className="font-medium">{formatCurrency(txSummary.inflow)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total outflow</p>
-                <p className="font-medium">{formatCurrency(txSummary.outflow)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">
-                  Avg monthly in ({txSummary.monthCount} mo)
-                </p>
-                <p className="font-medium">{formatCurrency(txSummary.monthlyAvgIn)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Avg monthly out</p>
-                <p className="font-medium">{formatCurrency(txSummary.monthlyAvgOut)}</p>
-              </div>
+            </p>
+            <div className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-4">
+              <Stat label="Total inflow" value={formatCurrency(txSummary.inflow)} />
+              <Stat label="Total outflow" value={formatCurrency(txSummary.outflow)} />
+              <Stat
+                label={`Avg in (${txSummary.monthCount}mo)`}
+                value={formatCurrency(txSummary.monthlyAvgIn)}
+              />
+              <Stat
+                label="Avg out"
+                value={formatCurrency(txSummary.monthlyAvgOut)}
+              />
             </div>
             {recentTransactions.length ? (
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
                   Most recent
                 </p>
-                <ul className="divide-y divide-border text-sm">
+                <ul className="divide-y divide-[var(--rule-soft)]">
                   {recentTransactions.map((t, i) => (
                     <li
                       key={`${t.accountId}-${t.date}-${i}`}
-                      className="flex items-center justify-between gap-3 py-1.5"
+                      className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px]"
                     >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate">{t.description}</p>
-                        <p className="text-xs text-muted-foreground">
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className="block truncate text-[13px] text-[var(--ink)]"
+                          style={{ fontFamily: "var(--serif)" }}
+                        >
+                          {t.description}
+                        </span>
+                        <span className="block font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)]">
                           {t.date}
                           {t.accountLast4 ? ` · ***${t.accountLast4}` : ""}
                           {t.category ? ` · ${t.category}` : ""}
                           {t.status === "pending" ? " · pending" : ""}
-                        </p>
-                      </div>
-                      <p
+                        </span>
+                      </span>
+                      <span
                         className={
-                          t.amount >= 0
-                            ? "font-medium text-emerald-600"
-                            : "font-medium text-foreground"
+                          "shrink-0 font-medium tabular-nums " +
+                          (t.amount >= 0
+                            ? "text-[var(--accent-deep)]"
+                            : "text-[var(--ink)]")
                         }
                       >
                         {formatCurrency(t.amount)}
-                      </p>
+                      </span>
                     </li>
                   ))}
                 </ul>
                 {transactions.length > recentTransactions.length ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    + {transactions.length - recentTransactions.length} more
-                    transactions in pull
+                  <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+                    + {transactions.length - recentTransactions.length} more in
+                    pull
                   </p>
                 ) : null}
               </div>
             ) : null}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       ) : null}
 
       {Object.entries(groupedByForm).map(([formId, patches]) => {
         const schema = getSchema(formId);
         return (
-          <Card key={formId}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">
-                  Form {formId} — {schema?.title ?? "(unknown)"}
-                </CardTitle>
-                <Badge variant="secondary">{patches.length}</Badge>
+          <section
+            key={formId}
+            className="rounded-[3px] border border-[var(--rule)] bg-[var(--paper-2)]"
+          >
+            <header className="flex items-center justify-between gap-3 border-b border-[var(--rule-soft)] px-4 py-3">
+              <div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+                  Form {formId}
+                </span>
+                <h3
+                  className="mt-0.5 text-[15px] tracking-[-0.015em] text-[var(--ink)]"
+                  style={{ fontFamily: "var(--serif)" }}
+                >
+                  {schema?.title ?? "(unknown)"}
+                </h3>
+                {schema?.longTitle ? (
+                  <p className="mt-0.5 text-[11px] text-[var(--mute)]">
+                    {schema.longTitle}
+                  </p>
+                ) : null}
               </div>
-              <CardDescription>{schema?.longTitle}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="divide-y divide-border">
-                {patches.map((p) => (
-                  <li key={p.id} className="flex items-start gap-3 py-2">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={!!accepted[p.id]}
-                      onChange={(e) =>
-                        setAccepted((cur) => ({
-                          ...cur,
-                          [p.id]: e.target.checked,
-                        }))
-                      }
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm">{p.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.op.kind === "appendGroup"
-                          ? `New row in ${p.op.groupId}`
-                          : `Set ${p.op.path.join(".")}`}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+              <Badge variant="ink">{patches.length}</Badge>
+            </header>
+            <ul className="divide-y divide-[var(--rule-soft)] px-4">
+              {patches.map((p) => (
+                <li key={p.id} className="flex items-start gap-2 py-2">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-3.5 w-3.5 accent-[var(--ink)]"
+                    checked={!!accepted[p.id]}
+                    onChange={(e) =>
+                      setAccepted((cur) => ({
+                        ...cur,
+                        [p.id]: e.target.checked,
+                      }))
+                    }
+                  />
+                  <div className="flex-1">
+                    <p
+                      className="text-[13px] tracking-[-0.005em] text-[var(--ink)]"
+                      style={{ fontFamily: "var(--serif)" }}
+                    >
+                      {p.label}
+                    </p>
+                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)]">
+                      {p.op.kind === "appendGroup"
+                        ? `New row · ${p.op.groupId}`
+                        : `Set ${p.op.path.join(".")}`}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
         );
       })}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)]">
+        {label}
+      </p>
+      <p
+        className="mt-0.5 text-[16px] tracking-[-0.015em] text-[var(--ink)] tabular-nums"
+        style={{ fontFamily: "var(--serif)" }}
+      >
+        {value}
+      </p>
     </div>
   );
 }

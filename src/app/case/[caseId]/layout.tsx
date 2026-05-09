@@ -22,7 +22,6 @@ export default function CaseLayout({
     setActive(caseId);
   }, [caseId, setActive]);
 
-  // After hydration, if the case doesn't exist, send the user back to the index.
   useEffect(() => {
     if (typeof window !== "undefined") {
       const t = setTimeout(() => {
@@ -36,7 +35,9 @@ export default function CaseLayout({
   if (!exists) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading case…</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)]">
+          Loading case…
+        </p>
       </div>
     );
   }
@@ -45,12 +46,10 @@ export default function CaseLayout({
     <div className="flex flex-1 flex-col">
       <CaseHeader caseId={caseId} />
       <div className="flex flex-1">
-        <aside className="hidden w-64 shrink-0 border-r border-border bg-muted/20 px-3 py-6 lg:block">
+        <aside className="hidden w-[224px] shrink-0 border-r border-[var(--rule-soft)] px-2 py-4 lg:block">
           <CaseSidebar caseId={caseId} />
         </aside>
-        <main className="flex-1 overflow-x-hidden px-6 py-8 lg:px-10">
-          <div className="mx-auto max-w-3xl">{children}</div>
-        </main>
+        <main className="flex-1 overflow-x-hidden">{children}</main>
       </div>
     </div>
   );

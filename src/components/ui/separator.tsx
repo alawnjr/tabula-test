@@ -3,13 +3,15 @@ import { cn } from "@/lib/utils";
 
 export const Separator = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & { orientation?: "horizontal" | "vertical" }
+  React.HTMLAttributes<HTMLDivElement> & {
+    orientation?: "horizontal" | "vertical";
+  }
 >(({ className, orientation = "horizontal", ...props }, ref) => (
   <div
     ref={ref}
     role="separator"
     className={cn(
-      "shrink-0 bg-border",
+      "shrink-0 bg-[var(--rule-soft)]",
       orientation === "horizontal" ? "h-px w-full" : "h-full w-px",
       className
     )}

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useReviewStore } from "@/state/review-store";
 import { useCaseStore } from "@/state/case-store";
 import type { ExtractedDoc, FormPatch } from "@/lib/integrations/types";
+import { cn } from "@/lib/utils";
 
 type Status = "idle" | "uploading" | "extracting" | "teller" | "error";
 
@@ -75,9 +76,7 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
 
   useEffect(() => {
     if (!applicationId) return;
-    loadTellerScript().catch(() => {
-      // Non-fatal; the click handler will retry / fall back to demo path.
-    });
+    loadTellerScript().catch(() => {});
   }, [applicationId]);
 
   const handleFile: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
@@ -155,8 +154,6 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
     setStatus("teller");
     const months = txWindow;
 
-    // Demo fallback: no applicationId configured → skip Teller Connect UI and
-    // hit the mock branch via the special "demo-access-token".
     if (!applicationId) {
       try {
         await finishConnect("demo-access-token", months);
@@ -191,18 +188,28 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
     }
   };
 
-  const busy = status === "uploading" || status === "extracting" || status === "teller";
+  const busy =
+    status === "uploading" || status === "extracting" || status === "teller";
 
   return (
-    <section className="rounded-lg border border-border bg-card px-4 py-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold">Pull data automatically</h3>
-          <p className="text-xs text-muted-foreground">
-            Upload a financial document, or connect a bank, then review the proposed schedule entries.
+    <section className="rounded-[3px] border border-[var(--rule)] bg-[var(--paper-2)]">
+      <div className="flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
+          <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+            Intake
+          </span>
+          <h3
+            className="text-[15px] tracking-[-0.015em] text-[var(--ink)]"
+            style={{ fontFamily: "var(--serif)" }}
+          >
+            Pull data automatically
+          </h3>
+          <p className="text-[11px] text-[var(--mute)]">
+            Upload a financial document, or connect a bank, then review the
+            proposed schedule entries.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -210,9 +217,9 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
             disabled={busy}
           >
             {status === "uploading" || status === "extracting" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
-              <FileUp className="h-4 w-4" />
+              <FileUp className="h-3 w-3" />
             )}
             {status === "uploading"
               ? "Uploading…"
@@ -220,48 +227,41 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
               ? "Extracting…"
               : "Upload document"}
           </Button>
+
           <div
-            className="inline-flex overflow-hidden rounded-md border border-border text-xs"
+            className="inline-flex overflow-hidden rounded-[3px] border border-[var(--rule)] text-[10px]"
             role="radiogroup"
             aria-label="Transaction history window"
           >
-            <button
-              type="button"
-              role="radio"
-              aria-checked={txWindow === 6}
-              onClick={() => setTxWindow(6)}
-              disabled={busy}
-              className={`px-2.5 py-1 transition-colors ${
-                txWindow === 6
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-background text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              6 mo
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={txWindow === 12}
-              onClick={() => setTxWindow(12)}
-              disabled={busy}
-              className={`px-2.5 py-1 transition-colors ${
-                txWindow === 12
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-background text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              1 yr
-            </button>
+            {([6, 12] as TxWindow[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={txWindow === m}
+                onClick={() => setTxWindow(m)}
+                disabled={busy}
+                className={cn(
+                  "px-2 py-1 font-mono uppercase tracking-[0.08em] transition-colors",
+                  txWindow === m
+                    ? "bg-[var(--ink)] text-[var(--paper)]"
+                    : "bg-[var(--paper)] text-[var(--mute)] hover:bg-[var(--paper-3)]"
+                )}
+              >
+                {m === 6 ? "6 mo" : "1 yr"}
+              </button>
+            ))}
           </div>
+
           <Button size="sm" onClick={handleConnect} disabled={busy}>
             {status === "teller" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
-              <Banknote className="h-4 w-4" />
+              <Banknote className="h-3 w-3" />
             )}
             {status === "teller" ? "Connecting…" : "Connect bank"}
           </Button>
+
           <input
             ref={fileRef}
             type="file"
@@ -272,7 +272,7 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
         </div>
       </div>
       {error ? (
-        <p className="mt-3 rounded border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <p className="border-t border-[var(--rule-soft)] bg-[color-mix(in_oklch,var(--destructive)_8%,var(--paper-2))] px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--destructive)]">
           {error}
         </p>
       ) : null}

@@ -36,30 +36,38 @@ export function RepeatingGroup({
   });
 
   return (
-    <section className="space-y-3 rounded-md border border-dashed border-border p-4">
-      <header className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold">{group.label}</h3>
+    <section className="space-y-3 rounded-[3px] border border-dashed border-[var(--rule)] bg-[var(--paper)] p-3">
+      <header className="flex flex-col gap-0.5">
+        <h3
+          className="text-[14px] tracking-[-0.01em] text-[var(--ink)]"
+          style={{ fontFamily: "var(--serif)" }}
+        >
+          {group.label}
+        </h3>
         {group.description ? (
-          <p className="text-xs text-muted-foreground">{group.description}</p>
+          <p className="text-[11px] text-[var(--mute)]">{group.description}</p>
         ) : null}
       </header>
 
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p
+          className="text-[12px] italic text-[var(--mute)]"
+          style={{ fontFamily: "var(--serif)" }}
+        >
           No {group.itemLabel.toLowerCase()}s yet.
         </p>
       ) : (
-        <ul className="space-y-4">
+        <ul className="space-y-3">
           {items.map((item, index) => {
             const itemPath = [...parentPath, group.id, String(index)];
             return (
               <li
                 key={index}
-                className="space-y-3 rounded-md bg-muted/40 p-4"
+                className="space-y-2 rounded-[2px] border border-[var(--rule-soft)] bg-[var(--paper-2)] p-3"
               >
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {group.itemLabel} #{index + 1}
+                  <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+                    {group.itemLabel} № {String(index + 1).padStart(2, "0")}
                   </p>
                   <Button
                     type="button"
@@ -67,12 +75,12 @@ export function RepeatingGroup({
                     size="sm"
                     onClick={() => remove(formId, group.id, index)}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3 w-3" />
                     Remove
                   </Button>
                 </div>
                 <Separator />
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   {group.fields.map((f) => (
                     <FieldRenderer
                       key={f.id}
@@ -95,7 +103,7 @@ export function RepeatingGroup({
         size="sm"
         onClick={() => append(formId, group.id)}
       >
-        <Plus className="h-4 w-4" />
+        <Plus className="h-3 w-3" />
         Add {group.itemLabel.toLowerCase()}
       </Button>
     </section>

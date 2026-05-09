@@ -4,13 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCaseStore } from "@/state/case-store";
 import { chapterLabel } from "@/lib/schemas";
@@ -39,88 +32,172 @@ export default function Home() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-6 py-12 space-y-10">
-      <header className="space-y-2">
-        <p className="text-sm uppercase tracking-wide text-muted-foreground">
-          Bankruptcy
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight">Case Builder</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Walk through a Chapter 7 or Chapter 13 bankruptcy filing schedule by
-          schedule. Cases are saved to your browser only — export to JSON to
-          back up or move between devices.
-        </p>
+    <>
+      <header
+        className="sticky top-0 z-30 border-b border-[var(--rule-soft)] bg-[var(--paper)]"
+        style={{ height: "var(--case-header-h)" }}
+      >
+        <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-5">
+          <Link href="/" className="logo">
+            Case Builder<span className="logo-dot" />
+          </Link>
+          <span className="pill">
+            <span className="dot pulse" />
+            Chapter 7 & 13
+          </span>
+        </div>
       </header>
 
-      <section className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => onNew("chapter7")}>New Chapter 7 case</Button>
-        <Button variant="secondary" onClick={() => onNew("chapter13")}>
-          New Chapter 13 case
-        </Button>
-        <ImportExport />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Your cases
-        </h2>
-        {!hydrated ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : list.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No cases yet. Create one to get started.
+      <main className="mx-auto w-full max-w-6xl px-5 pb-16 pt-10">
+        <section className="space-y-6">
+          <span className="pill">
+            <span className="dot pulse" />
+            Bankruptcy workspace
+          </span>
+          <h1 className="display max-w-[14ch] text-[clamp(48px,7vw,96px)] text-[var(--ink)]">
+            Case files,
+            <br />
+            <em>handled.</em>
+          </h1>
+          <p className="max-w-[52ch] text-[15px] font-light leading-relaxed text-[var(--ink-2)]">
+            A schedule-by-schedule workspace for Chapter 7 and Chapter 13
+            filings. Pull bank data, extract documents, and assemble a
+            complete petition without leaving the brief.
           </p>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {list.map((c) => {
-              const s = caseSummary(c);
-              return (
-                <Link key={c.id} href={`/case/${c.id}`}>
-                  <Card className="h-full transition hover:border-foreground/30">
-                    <CardHeader>
-                      <div className="flex items-center justify-between gap-2">
-                        <CardTitle>
-                          {c.debtorName || "Untitled debtor"}
-                        </CardTitle>
-                        <Badge variant="secondary">
-                          {chapterLabel(c.chapter)}
-                        </Badge>
-                      </div>
-                      <CardDescription>
-                        Updated{" "}
-                        {new Date(c.updatedAt).toLocaleString(undefined, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground space-y-1">
-                      <div className="flex justify-between">
-                        <span>Total assets</span>
-                        <span className="tabular-nums">
-                          {formatCurrency(s.assets.grand)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Total liabilities</span>
-                        <span className="tabular-nums">
-                          {formatCurrency(s.liabilities.grand)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Monthly net</span>
-                        <span className="tabular-nums">
-                          {formatCurrency(s.net)}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button onClick={() => onNew("chapter7")}>New Chapter 7</Button>
+            <Button variant="outline" onClick={() => onNew("chapter13")}>
+              New Chapter 13
+            </Button>
+            <span
+              className="ml-1 h-3.5 w-px bg-[var(--rule)]"
+              aria-hidden
+            />
+            <ImportExport />
           </div>
-        )}
-      </section>
-    </main>
+        </section>
+
+        <section className="mt-16 space-y-4">
+          <div className="flex items-end justify-between gap-6 border-b border-[var(--rule)] pb-2.5">
+            <div className="space-y-1">
+              <span className="tag">Docket</span>
+              <h2
+                className="text-[22px] tracking-[-0.02em]"
+                style={{ fontFamily: "var(--serif)" }}
+              >
+                Your cases
+              </h2>
+            </div>
+            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--mute)]">
+              {hydrated ? `${list.length} on file` : "Loading…"}
+            </span>
+          </div>
+
+          {!hydrated ? (
+            <p className="text-[12.5px] text-[var(--mute)]">Loading…</p>
+          ) : list.length === 0 ? (
+            <div className="rounded-[3px] border border-dashed border-[var(--rule)] bg-[var(--paper-2)] px-5 py-9 text-center">
+              <p
+                className="text-[16px] tracking-[-0.01em] text-[var(--ink-2)]"
+                style={{ fontFamily: "var(--serif)" }}
+              >
+                <em>No cases yet.</em>
+              </p>
+              <p className="mt-1.5 text-[12px] text-[var(--mute)]">
+                Create a Chapter 7 or 13 above to begin.
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-[var(--rule-soft)] border-y border-[var(--rule-soft)]">
+              {list.map((c, i) => {
+                const s = caseSummary(c);
+                const idShort = c.id.slice(-6).toUpperCase();
+                return (
+                  <li key={c.id}>
+                    <Link
+                      href={`/case/${c.id}`}
+                      className="group grid grid-cols-12 items-center gap-5 px-1 py-4 transition-colors hover:bg-[var(--paper-2)]"
+                    >
+                      <div className="col-span-1 hidden md:block">
+                        <span className="font-mono text-[10px] tracking-[0.12em] text-[var(--mute)]">
+                          № {String(i + 1).padStart(2, "0")}
+                        </span>
+                      </div>
+                      <div className="col-span-12 md:col-span-5">
+                        <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+                          Case {idShort}
+                        </p>
+                        <p
+                          className="mt-0.5 text-[18px] leading-tight tracking-[-0.015em] text-[var(--ink)] group-hover:text-[var(--accent-deep)]"
+                          style={{ fontFamily: "var(--serif)" }}
+                        >
+                          {c.debtorName || (
+                            <em className="text-[var(--mute)]">
+                              Untitled debtor
+                            </em>
+                          )}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <Badge variant="outline">
+                            {chapterLabel(c.chapter)}
+                          </Badge>
+                          <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+                            Updated{" "}
+                            {new Date(c.updatedAt).toLocaleDateString(
+                              undefined,
+                              { dateStyle: "medium" }
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="col-span-12 grid grid-cols-3 gap-3 md:col-span-6">
+                        <Stat label="Assets" value={formatCurrency(s.assets.grand)} />
+                        <Stat
+                          label="Liabilities"
+                          value={formatCurrency(s.liabilities.grand)}
+                        />
+                        <Stat
+                          label="Monthly net"
+                          value={formatCurrency(s.net)}
+                          accent={s.net >= 0}
+                        />
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      </main>
+    </>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div>
+      <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)]">
+        {label}
+      </p>
+      <p
+        className={
+          "mt-0.5 text-[15px] tracking-[-0.01em] tabular-nums " +
+          (accent ? "text-[var(--accent-deep)]" : "text-[var(--ink)]")
+        }
+        style={{ fontFamily: "var(--serif)" }}
+      >
+        {value}
+      </p>
+    </div>
   );
 }

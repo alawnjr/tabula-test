@@ -14,10 +14,31 @@ import { RepeatingGroup } from "./RepeatingGroup";
 export function SectionRenderer({
   section,
   formId,
+  unwrapped = false,
 }: {
   section: Section;
   formId: string;
+  unwrapped?: boolean;
 }) {
+  const body = (
+    <div className="space-y-4">
+      {section.items.map((item) =>
+        isRepeatingGroup(item) ? (
+          <RepeatingGroup key={item.id} group={item} formId={formId} />
+        ) : (
+          <FieldRenderer
+            key={item.id}
+            field={item}
+            formId={formId}
+            parentPath={[]}
+          />
+        )
+      )}
+    </div>
+  );
+
+  if (unwrapped) return body;
+
   return (
     <Card>
       <CardHeader>
@@ -26,20 +47,7 @@ export function SectionRenderer({
           <CardDescription>{section.description}</CardDescription>
         ) : null}
       </CardHeader>
-      <CardContent className="space-y-4">
-        {section.items.map((item) =>
-          isRepeatingGroup(item) ? (
-            <RepeatingGroup key={item.id} group={item} formId={formId} />
-          ) : (
-            <FieldRenderer
-              key={item.id}
-              field={item}
-              formId={formId}
-              parentPath={[]}
-            />
-          )
-        )}
-      </CardContent>
+      <CardContent className="space-y-4">{body}</CardContent>
     </Card>
   );
 }
