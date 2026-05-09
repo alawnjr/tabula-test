@@ -218,6 +218,18 @@ function mapItem(
         source,
         sourceLabel,
       });
+      const setMeansField = (
+        id: string,
+        value: unknown,
+        label: string
+      ): FormPatch => ({
+        id: newPatchId(),
+        formId: "122A-1",
+        op: { kind: "setField", path: [id], value },
+        label,
+        source,
+        sourceLabel,
+      });
       const out: FormPatch[] = [];
       if (item.employer) {
         out.push({
@@ -264,6 +276,19 @@ function mapItem(
             setField(fieldId, value, `Set Debtor ${item.debtor} ${label}: $${value}`)
           );
         }
+      }
+      // Means-test 122A-1 mirrors gross wages — the rest of CMI categories
+      // can't be inferred from a single pay stub, so we only emit the wages
+      // patch. The form will sum the categories the user enters manually.
+      if (typeof item.grossWages === "number") {
+        const mtField = item.debtor === 2 ? "mt1d2Wages" : "mt1d1Wages";
+        out.push(
+          setMeansField(
+            mtField,
+            item.grossWages,
+            `Set 122A-1 Debtor ${item.debtor} avg monthly wages: $${item.grossWages}`
+          )
+        );
       }
       return out;
     }

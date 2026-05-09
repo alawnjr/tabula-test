@@ -10,16 +10,29 @@ import { cn } from "@/lib/utils";
 export function CaseSidebar({ caseId }: { caseId: string }) {
   const pathname = usePathname();
   const record = useCaseStore((s) => s.cases[caseId]);
-  const reviewCount = useReviewStore(
-    (s) => s.bundles[caseId]?.patches.length ?? 0
+  const allPatches = useReviewStore(
+    (s) => s.bundles[caseId]?.patches
   );
   if (!record) return null;
   const ids = FORM_ORDER[record.chapter];
+  const allowed = new Set(ids);
+  const reviewCount = (allPatches ?? []).filter((p) =>
+    allowed.has(p.formId)
+  ).length;
 
   const txCount = record.bankData?.doc.transactions?.length ?? 0;
   const dataHref = `/case/${caseId}/data`;
   const overviewHref = `/case/${caseId}`;
   const reviewHref = `/case/${caseId}/review`;
+
+  // Show the means-test reference group only when this case carries data
+  // from a means-test branch — otherwise it's noise on a fresh ch7/13 case.
+  const meansTestIds = ["122A-1", "122A-2", "122Result"];
+  const hasMeansTestData =
+    record.chapter !== "meansTest" &&
+    meansTestIds.some(
+      (id) => Object.keys(record.forms[id] ?? {}).length > 0
+    );
 
   return (
     <nav className="space-y-5 text-sm">
@@ -93,6 +106,55 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
           );
         })}
       </div>
+
+      {hasMeansTestData ? (
+        <div className="space-y-0.5">
+          <p className="px-1.5 pb-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+            Means test
+          </p>
+          {meansTestIds.map((id) => {
+            const s = getSchema(id);
+            if (!s) return null;
+            const href = `/case/${caseId}/${id}`;
+            const filledKeys = Object.keys(record.forms[id] ?? {}).filter(
+              (k) => {
+                const v = (record.forms[id] ?? {})[k];
+                if (Array.isArray(v)) return v.length > 0;
+                if (v == null || v === "") return false;
+                return true;
+              }
+            );
+            const status = s.derived
+              ? "derived"
+              : filledKeys.length === 0
+              ? "empty"
+              : "in-progress";
+            return (
+              <SidebarLink
+                key={id}
+                href={href}
+                label={s.title}
+                meta={s.id === "122Result" ? "Result" : `Form ${s.id}`}
+                active={pathname === href}
+                chip={
+                  status === "empty"
+                    ? "—"
+                    : status === "in-progress"
+                    ? "•"
+                    : "auto"
+                }
+                chipTone={
+                  status === "empty"
+                    ? "muted"
+                    : status === "in-progress"
+                    ? "accent"
+                    : "deep"
+                }
+              />
+            );
+          })}
+        </div>
+      ) : null}
     </nav>
   );
 }

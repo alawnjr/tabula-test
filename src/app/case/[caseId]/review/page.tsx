@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useReviewStore } from "@/state/review-store";
 import { useCaseStore } from "@/state/case-store";
-import { getSchema } from "@/lib/schemas";
+import { FORM_ORDER, getSchema } from "@/lib/schemas";
 import type {
   BankTransaction,
   ExtractedDoc,
@@ -73,11 +73,23 @@ export default function ReviewPage({
 }) {
   const { caseId } = use(params);
   const router = useRouter();
-  const bundle = useReviewStore((s) => s.bundles[caseId]);
+  const rawBundle = useReviewStore((s) => s.bundles[caseId]);
   const updatePatch = useReviewStore((s) => s.updatePatch);
   const removePatch = useReviewStore((s) => s.removePatch);
   const removeDocByLabel = useReviewStore((s) => s.removeDocByLabel);
   const clearBundle = useReviewStore((s) => s.clearBundle);
+  const caseChapter = useCaseStore((s) => s.cases[caseId]?.chapter);
+
+  // Hide patches that target forms outside this case's chapter — e.g. a
+  // pay-stub upload in a means-test case generates 106I patches we shouldn't
+  // surface there. The same data does become relevant after branching to
+  // Chapter 7, since the new case copies forms over.
+  const bundle = useMemo(() => {
+    if (!rawBundle || !caseChapter) return rawBundle;
+    const allowed = new Set(FORM_ORDER[caseChapter] ?? []);
+    const patches = rawBundle.patches.filter((p) => allowed.has(p.formId));
+    return { docs: rawBundle.docs, patches };
+  }, [rawBundle, caseChapter]);
 
   const [accepted, setAccepted] = useState<Record<string, boolean>>(() =>
     Object.fromEntries((bundle?.patches ?? []).map((p) => [p.id, true]))

@@ -5,6 +5,7 @@ import { use } from "react";
 import { useCaseStore } from "@/state/case-store";
 import { FORM_ORDER, getSchema } from "@/lib/schemas";
 import { SummaryView } from "@/components/case/SummaryView";
+import { MeansTestResult } from "@/components/case/MeansTestResult";
 
 export default function CaseOverviewPage({
   params,
@@ -36,7 +37,11 @@ export default function CaseOverviewPage({
         </p>
       </header>
 
-      <SummaryView />
+      {record.chapter === "meansTest" ? (
+        <MeansTestResult caseId={caseId} />
+      ) : (
+        <SummaryView />
+      )}
 
       <section className="space-y-3">
         <div className="flex items-end justify-between border-b border-[var(--rule)] pb-2">

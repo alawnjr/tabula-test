@@ -7,6 +7,7 @@ import { useCaseStore } from "@/state/case-store";
 import { FORM_ORDER, getSchema } from "@/lib/schemas";
 import { FormRenderer } from "@/components/form-renderer/FormRenderer";
 import { SummaryView } from "@/components/case/SummaryView";
+import { MeansTestResult } from "@/components/case/MeansTestResult";
 
 export default function CaseFormPage({
   params,
@@ -97,7 +98,11 @@ export default function CaseFormPage({
               {schema.longTitle}
             </p>
           ) : null}
-          <SummaryView />
+          {formId === "122Result" ? (
+            <MeansTestResult caseId={caseId} />
+          ) : (
+            <SummaryView />
+          )}
           <div className="border-t border-[var(--rule)] pt-4">{formNav}</div>
         </div>
       </div>

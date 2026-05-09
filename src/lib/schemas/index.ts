@@ -1,5 +1,8 @@
 import { form101 } from "./form-101-petition";
 import { form107 } from "./form-107-sofa";
+import { form122A1 } from "./form-122a1-cmi";
+import { form122A2 } from "./form-122a2-means";
+import { form122Result } from "./form-122result-eligibility";
 import { schedule106AB } from "./schedule-106ab-property";
 import { schedule106C } from "./schedule-106c-exemptions";
 import { schedule106D } from "./schedule-106d-secured";
@@ -23,9 +26,13 @@ export const SCHEMAS: Record<string, FormSchema> = {
   "106J": schedule106J,
   "106Sum": schedule106Sum,
   "107": form107,
+  "122A-1": form122A1,
+  "122A-2": form122A2,
+  "122Result": form122Result,
 };
 
 export const FORM_ORDER: Record<ChapterId, string[]> = {
+  meansTest: ["122A-1", "122A-2", "122Result"],
   chapter7: [
     "101",
     "106AB",
@@ -59,7 +66,9 @@ export function getSchema(formId: string): FormSchema | undefined {
 }
 
 export function chapterLabel(chapter: ChapterId): string {
-  return chapter === "chapter7" ? "Chapter 7" : "Chapter 13";
+  if (chapter === "chapter7") return "Chapter 7";
+  if (chapter === "chapter13") return "Chapter 13";
+  return "Means test";
 }
 
 export * from "./types";

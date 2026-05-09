@@ -48,6 +48,10 @@ type CaseStore = {
   setBankData: (caseId: string, doc: ExtractedDoc) => void;
   clearBankData: (caseId: string) => void;
 
+  // Branch a means-test (or any) case into a fresh case under a new chapter,
+  // copying forms + bank data so the user keeps their work. Returns new id.
+  branchToChapter: (sourceCaseId: string, chapter: ChapterId) => string | null;
+
   exportCase: (id: string) => string;
   importCase: (json: string) => string;
 };
@@ -112,10 +116,10 @@ export const useCaseStore = create<CaseStore>()(
       createCase: (chapter) => {
         const id = uid();
         const now = nowIso();
-        const initial101: FormData =
-          chapter === "chapter7"
-            ? { chapterChoice: "chapter7" }
-            : { chapterChoice: "chapter13" };
+        const forms: Record<string, FormData> =
+          chapter === "meansTest"
+            ? {}
+            : { "101": { chapterChoice: chapter } };
         set((s) => ({
           cases: {
             ...s.cases,
@@ -125,7 +129,7 @@ export const useCaseStore = create<CaseStore>()(
               debtorName: "",
               createdAt: now,
               updatedAt: now,
-              forms: { "101": initial101 },
+              forms,
             },
           },
           activeCaseId: id,
@@ -233,6 +237,36 @@ export const useCaseStore = create<CaseStore>()(
             },
           };
         }),
+
+      branchToChapter: (sourceCaseId, chapter) => {
+        const src = get().cases[sourceCaseId];
+        if (!src) return null;
+        const id = uid();
+        const now = nowIso();
+        const forms: Record<string, FormData> = {};
+        for (const [k, v] of Object.entries(src.forms)) {
+          forms[k] = { ...v };
+        }
+        // Petition needs the chapter selection to match.
+        const existing101 = forms["101"] ?? {};
+        forms["101"] = { ...existing101, chapterChoice: chapter };
+        set((s) => ({
+          cases: {
+            ...s.cases,
+            [id]: {
+              id,
+              chapter,
+              debtorName: src.debtorName,
+              createdAt: now,
+              updatedAt: now,
+              forms,
+              bankData: src.bankData,
+            },
+          },
+          activeCaseId: id,
+        }));
+        return id;
+      },
 
       clearBankData: (caseId) =>
         set((s) => {

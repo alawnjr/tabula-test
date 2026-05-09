@@ -9,7 +9,9 @@ import { useCaseStore } from "@/state/case-store";
 import { chapterLabel } from "@/lib/schemas";
 import { ImportExport } from "@/components/case/ImportExport";
 import { caseSummary } from "@/lib/derived";
+import { computeMeansTest } from "@/lib/meansTest";
 import { formatCurrency } from "@/lib/currency";
+import type { CaseRecord } from "@/state/case-store";
 
 export default function Home() {
   const hydrated = useSyncExternalStore(
@@ -22,9 +24,10 @@ export default function Home() {
   const createCase = useCaseStore((s) => s.createCase);
   const router = useRouter();
 
-  const onNew = (chapter: "chapter7" | "chapter13") => {
+  const onNew = (chapter: "chapter7" | "chapter13" | "meansTest") => {
     const id = createCase(chapter);
-    router.push(`/case/${id}/101`);
+    const firstForm = chapter === "meansTest" ? "122A-1" : "101";
+    router.push(`/case/${id}/${firstForm}`);
   };
 
   const list = Object.values(cases).sort((a, b) =>
@@ -70,12 +73,20 @@ export default function Home() {
             <Button variant="outline" onClick={() => onNew("chapter13")}>
               New Chapter 13
             </Button>
+            <Button variant="outline" onClick={() => onNew("meansTest")}>
+              Means test
+            </Button>
             <span
               className="ml-1 h-3.5 w-px bg-[var(--rule)]"
               aria-hidden
             />
             <ImportExport />
           </div>
+          <p className="max-w-[52ch] text-[12px] text-[var(--mute)]">
+            Not sure which chapter? Run the <em>means test</em> first — Tabula
+            tells you whether you qualify for Chapter 7, then carries your
+            entries forward into a full filing.
+          </p>
         </section>
 
         <section className="mt-16 space-y-4">
@@ -111,7 +122,6 @@ export default function Home() {
           ) : (
             <ul className="divide-y divide-[var(--rule-soft)] border-y border-[var(--rule-soft)]">
               {list.map((c, i) => {
-                const s = caseSummary(c);
                 const idShort = c.id.slice(-6).toUpperCase();
                 return (
                   <li key={c.id}>
@@ -134,7 +144,9 @@ export default function Home() {
                         >
                           {c.debtorName || (
                             <em className="text-[var(--mute)]">
-                              Untitled debtor
+                              {c.chapter === "meansTest"
+                                ? "Means-test draft"
+                                : "Untitled debtor"}
                             </em>
                           )}
                         </p>
@@ -152,16 +164,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="col-span-12 grid grid-cols-3 gap-3 md:col-span-6">
-                        <Stat label="Assets" value={formatCurrency(s.assets.grand)} />
-                        <Stat
-                          label="Liabilities"
-                          value={formatCurrency(s.liabilities.grand)}
-                        />
-                        <Stat
-                          label="Monthly net"
-                          value={formatCurrency(s.net)}
-                          accent={s.net >= 0}
-                        />
+                        <CaseStats record={c} />
                       </div>
                     </Link>
                   </li>
@@ -171,6 +174,40 @@ export default function Home() {
           )}
         </section>
       </main>
+    </>
+  );
+}
+
+function CaseStats({ record }: { record: CaseRecord }) {
+  if (record.chapter === "meansTest") {
+    const r = computeMeansTest(record);
+    return (
+      <>
+        <Stat label="Monthly income" value={formatCurrency(r.cmiMonthly)} />
+        <Stat
+          label="State median"
+          value={formatCurrency(r.medianAnnual / 12)}
+        />
+        <Stat
+          label="Status"
+          value={r.verdictLabel}
+          accent={
+            r.verdict === "below-median" || r.verdict === "safe-harbor"
+          }
+        />
+      </>
+    );
+  }
+  const s = caseSummary(record);
+  return (
+    <>
+      <Stat label="Assets" value={formatCurrency(s.assets.grand)} />
+      <Stat label="Liabilities" value={formatCurrency(s.liabilities.grand)} />
+      <Stat
+        label="Monthly net"
+        value={formatCurrency(s.net)}
+        accent={s.net >= 0}
+      />
     </>
   );
 }
