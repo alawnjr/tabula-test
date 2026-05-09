@@ -1,15 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, X } from "lucide-react";
+import { Check, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useReviewStore } from "@/state/review-store";
 import { useCaseStore } from "@/state/case-store";
 import { getSchema } from "@/lib/schemas";
-import type { BankTransaction, FormPatch } from "@/lib/integrations/types";
+import type {
+  BankTransaction,
+  ExtractedDoc,
+  FormPatch,
+} from "@/lib/integrations/types";
 
 function formatCurrency(amount: number): string {
   return amount.toLocaleString("en-US", {
@@ -44,6 +49,23 @@ function summarizeTransactions(txs: BankTransaction[]): {
   };
 }
 
+// What the editor returns when the user changes a value. We let users edit
+// strings, numbers, and booleans inline. The shape preserves the original
+// FormPatch op kind so applying just routes to the same store action.
+type PatchEditOp = FormPatch["op"];
+
+function coerceValue(prev: unknown, raw: string): unknown {
+  if (typeof prev === "number") {
+    if (raw.trim() === "") return 0;
+    const n = Number(raw.replace(/[^0-9.\-]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (typeof prev === "boolean") {
+    return raw === "true";
+  }
+  return raw;
+}
+
 export default function ReviewPage({
   params,
 }: {
@@ -52,11 +74,41 @@ export default function ReviewPage({
   const { caseId } = use(params);
   const router = useRouter();
   const bundle = useReviewStore((s) => s.bundles[caseId]);
+  const updatePatch = useReviewStore((s) => s.updatePatch);
+  const removePatch = useReviewStore((s) => s.removePatch);
+  const removeDocByLabel = useReviewStore((s) => s.removeDocByLabel);
   const clearBundle = useReviewStore((s) => s.clearBundle);
 
   const [accepted, setAccepted] = useState<Record<string, boolean>>(() =>
-    bundle ? Object.fromEntries(bundle.patches.map((p) => [p.id, true])) : {}
+    Object.fromEntries((bundle?.patches ?? []).map((p) => [p.id, true]))
   );
+
+  // Newly-arriving patches default to accepted=true; patches that have been
+  // removed from the bundle are dropped from the accepted map.
+  const allPatchIds = useMemo(
+    () => bundle?.patches.map((p) => p.id) ?? [],
+    [bundle]
+  );
+  useEffect(() => {
+    setAccepted((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      const idSet = new Set(allPatchIds);
+      for (const id of allPatchIds) {
+        if (!(id in next)) {
+          next[id] = true;
+          changed = true;
+        }
+      }
+      for (const k of Object.keys(next)) {
+        if (!idSet.has(k)) {
+          delete next[k];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [allPatchIds]);
 
   const groupedByForm = useMemo(() => {
     const out: Record<string, FormPatch[]> = {};
@@ -67,18 +119,25 @@ export default function ReviewPage({
     return out;
   }, [bundle]);
 
-  const transactions = useMemo(
-    () => bundle?.doc.transactions ?? [],
-    [bundle]
-  );
-  const txWindow = bundle?.doc.transactionWindow;
+  // Aggregate transactions across every doc that brought any.
+  const transactions = useMemo(() => {
+    if (!bundle) return [] as BankTransaction[];
+    const all: BankTransaction[] = [];
+    for (const d of bundle.docs) {
+      if (d.transactions?.length) all.push(...d.transactions);
+    }
+    return all;
+  }, [bundle]);
   const txSummary = useMemo(
     () => (transactions.length ? summarizeTransactions(transactions) : null),
     [transactions]
   );
-  const recentTransactions = useMemo(() => transactions.slice(0, 10), [transactions]);
+  const recentTransactions = useMemo(
+    () => transactions.slice(0, 10),
+    [transactions]
+  );
 
-  if (!bundle) {
+  if (!bundle || bundle.patches.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6 lg:px-8 lg:py-8 space-y-4">
         <header className="space-y-2">
@@ -90,52 +149,89 @@ export default function ReviewPage({
             Nothing to review
           </h1>
           <p className="max-w-[60ch] text-[13px] text-[var(--mute)]">
-            Upload a document or connect a bank from the case overview to see
-            proposed entries here.
+            Upload one or more documents or connect a bank from the data room
+            to see proposed entries here.
           </p>
         </header>
         <Button asChild>
-          <Link href={`/case/${caseId}`}>Back to case</Link>
+          <Link href={`/case/${caseId}/data`}>Open data room</Link>
         </Button>
       </div>
     );
   }
 
-  const acceptedCount = Object.values(accepted).filter(Boolean).length;
+  const acceptedCount = bundle.patches.filter(
+    (p) => accepted[p.id]
+  ).length;
 
-  const onApply = () => {
+  const applyPatch = (p: FormPatch) => {
     const setField = useCaseStore.getState().setFieldValue;
     const append = useCaseStore.getState().appendRepeatingItem;
-    const setFieldByPath = (formId: string, path: string[], value: unknown) =>
-      setField(formId, path, value as never);
+    if (p.op.kind === "setField") {
+      setField(p.formId, p.op.path, p.op.value as never);
+    } else {
+      const formData = useCaseStore.getState().cases[caseId]?.forms[p.formId];
+      const existing = Array.isArray(formData?.[p.op.groupId])
+        ? (formData![p.op.groupId] as unknown[])
+        : [];
+      const newIndex = existing.length;
+      append(p.formId, p.op.groupId);
+      for (const [k, v] of Object.entries(p.op.fields)) {
+        setField(
+          p.formId,
+          [p.op.groupId, String(newIndex), k],
+          v as never
+        );
+      }
+    }
+  };
 
+  const onApply = () => {
     for (const p of bundle.patches) {
       if (!accepted[p.id]) continue;
-      if (p.op.kind === "setField") {
-        setFieldByPath(p.formId, p.op.path, p.op.value);
-      } else {
-        const formData = useCaseStore.getState().cases[caseId]?.forms[p.formId];
-        const existing = Array.isArray(formData?.[p.op.groupId])
-          ? (formData![p.op.groupId] as unknown[])
-          : [];
-        const newIndex = existing.length;
-        append(p.formId, p.op.groupId);
-        for (const [k, v] of Object.entries(p.op.fields)) {
-          setFieldByPath(p.formId, [p.op.groupId, String(newIndex), k], v);
-        }
-      }
+      applyPatch(p);
     }
     clearBundle(caseId);
     router.push(`/case/${caseId}`);
   };
 
-  const onCancel = () => {
+  const onDiscardAll = () => {
+    if (
+      !confirm(
+        "Discard the entire review queue? Uploaded documents and bank pulls will be removed."
+      )
+    )
+      return;
     clearBundle(caseId);
     router.push(`/case/${caseId}`);
   };
 
   const toggleAll = (value: boolean) => {
-    setAccepted(Object.fromEntries(bundle.patches.map((p) => [p.id, value])));
+    setAccepted(
+      Object.fromEntries(bundle.patches.map((p) => [p.id, value]))
+    );
+  };
+
+  const handleEditScalar = (p: FormPatch, raw: string) => {
+    if (p.op.kind !== "setField") return;
+    const value = coerceValue(p.op.value, raw);
+    const op: PatchEditOp = { ...p.op, value };
+    updatePatch(caseId, p.id, op);
+  };
+
+  const handleEditGroupField = (
+    p: FormPatch,
+    fieldKey: string,
+    raw: string
+  ) => {
+    if (p.op.kind !== "appendGroup") return;
+    const prev = p.op.fields[fieldKey];
+    const value = coerceValue(prev, raw);
+    const op: PatchEditOp = {
+      ...p.op,
+      fields: { ...p.op.fields, [fieldKey]: value },
+    };
+    updatePatch(caseId, p.id, op);
   };
 
   return (
@@ -149,17 +245,19 @@ export default function ReviewPage({
           Confirm before <em className="text-[var(--mute)]">autofill.</em>
         </h1>
         <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)]">
-          {bundle.doc.sourceLabel} · {bundle.patches.length} proposed entries
+          {bundle.docs.length} {bundle.docs.length === 1 ? "source" : "sources"}{" "}
+          · {bundle.patches.length} proposed entries
         </p>
-        {bundle.doc.rawSummary ? (
-          <p
-            className="mt-2 max-w-[70ch] rounded-[3px] border border-[var(--rule-soft)] bg-[var(--paper-2)] px-3 py-2 text-[12.5px] italic text-[var(--ink-2)]"
-            style={{ fontFamily: "var(--serif)" }}
-          >
-            {bundle.doc.rawSummary}
-          </p>
-        ) : null}
       </header>
+
+      <SourcesPanel
+        docs={bundle.docs}
+        patches={bundle.patches}
+        onRemove={(label) => {
+          if (!confirm(`Remove ${label} and its proposed entries?`)) return;
+          removeDocByLabel(caseId, label);
+        }}
+      />
 
       <div className="flex items-center justify-between gap-2 border-y border-[var(--rule-soft)] py-2">
         <div className="flex items-center gap-1">
@@ -171,8 +269,8 @@ export default function ReviewPage({
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={onCancel}>
-            <X className="h-3 w-3" /> Discard
+          <Button variant="ghost" onClick={onDiscardAll}>
+            <X className="h-3 w-3" /> Discard all
           </Button>
           <Button onClick={onApply} disabled={acceptedCount === 0}>
             <Check className="h-3 w-3" /> Apply {acceptedCount} to forms
@@ -194,11 +292,6 @@ export default function ReviewPage({
                 Pulled history
               </h3>
             </div>
-            {txWindow ? (
-              <Badge variant="outline">
-                {txWindow.fromISO} → {txWindow.toISO}
-              </Badge>
-            ) : null}
           </header>
           <div className="space-y-4 px-4 py-3">
             <p className="text-[11px] text-[var(--mute)]">
@@ -206,8 +299,14 @@ export default function ReviewPage({
               (122A-1) and Schedules I/J — not auto-applied.
             </p>
             <div className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-4">
-              <Stat label="Total inflow" value={formatCurrency(txSummary.inflow)} />
-              <Stat label="Total outflow" value={formatCurrency(txSummary.outflow)} />
+              <Stat
+                label="Total inflow"
+                value={formatCurrency(txSummary.inflow)}
+              />
+              <Stat
+                label="Total outflow"
+                value={formatCurrency(txSummary.outflow)}
+              />
               <Stat
                 label={`Avg in (${txSummary.monthCount}mo)`}
                 value={formatCurrency(txSummary.monthlyAvgIn)}
@@ -295,38 +394,223 @@ export default function ReviewPage({
             </header>
             <ul className="divide-y divide-[var(--rule-soft)] px-4">
               {patches.map((p) => (
-                <li key={p.id} className="flex items-start gap-2 py-2">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-3.5 w-3.5 accent-[var(--ink)]"
-                    checked={!!accepted[p.id]}
-                    onChange={(e) =>
-                      setAccepted((cur) => ({
-                        ...cur,
-                        [p.id]: e.target.checked,
-                      }))
-                    }
-                  />
-                  <div className="flex-1">
-                    <p
-                      className="text-[13px] tracking-[-0.005em] text-[var(--ink)]"
-                      style={{ fontFamily: "var(--serif)" }}
-                    >
-                      {p.label}
-                    </p>
-                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)]">
-                      {p.op.kind === "appendGroup"
-                        ? `New row · ${p.op.groupId}`
-                        : `Set ${p.op.path.join(".")}`}
-                    </p>
-                  </div>
-                </li>
+                <PatchRow
+                  key={p.id}
+                  patch={p}
+                  accepted={!!accepted[p.id]}
+                  onAccept={(v) =>
+                    setAccepted((cur) => ({ ...cur, [p.id]: v }))
+                  }
+                  onEditScalar={(raw) => handleEditScalar(p, raw)}
+                  onEditGroupField={(k, raw) =>
+                    handleEditGroupField(p, k, raw)
+                  }
+                  onRemove={() => removePatch(caseId, p.id)}
+                />
               ))}
             </ul>
           </section>
         );
       })}
     </div>
+  );
+}
+
+function PatchRow({
+  patch,
+  accepted,
+  onAccept,
+  onEditScalar,
+  onEditGroupField,
+  onRemove,
+}: {
+  patch: FormPatch;
+  accepted: boolean;
+  onAccept: (v: boolean) => void;
+  onEditScalar: (raw: string) => void;
+  onEditGroupField: (key: string, raw: string) => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <li className="space-y-2 py-2">
+      <div className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          className="mt-1 h-3.5 w-3.5 accent-[var(--ink)]"
+          checked={accepted}
+          onChange={(e) => onAccept(e.target.checked)}
+        />
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-[13px] tracking-[-0.005em] text-[var(--ink)]"
+            style={{ fontFamily: "var(--serif)" }}
+          >
+            {patch.label}
+          </p>
+          <p className="mt-0.5 truncate font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)]">
+            {patch.op.kind === "appendGroup"
+              ? `New row · ${patch.op.groupId}`
+              : `Set ${patch.op.path.join(".")}`}{" "}
+            · {patch.sourceLabel}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? "Done" : "Edit"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={onRemove}
+            aria-label="Remove patch"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+
+      {open ? (
+        <div className="rounded-[3px] border border-[var(--rule-soft)] bg-[var(--paper)] p-3">
+          {patch.op.kind === "setField" ? (
+            <ScalarEditor
+              path={patch.op.path}
+              value={patch.op.value}
+              onChange={onEditScalar}
+            />
+          ) : (
+            <GroupEditor
+              fields={patch.op.fields}
+              onChange={onEditGroupField}
+            />
+          )}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function ScalarEditor({
+  path,
+  value,
+  onChange,
+}: {
+  path: string[];
+  value: unknown;
+  onChange: (raw: string) => void;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="block font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+        {path.join(".")}
+      </span>
+      <Input
+        defaultValue={value == null ? "" : String(value)}
+        onBlur={(e) => onChange(e.target.value)}
+      />
+    </label>
+  );
+}
+
+function GroupEditor({
+  fields,
+  onChange,
+}: {
+  fields: Record<string, unknown>;
+  onChange: (key: string, raw: string) => void;
+}) {
+  const entries = Object.entries(fields);
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {entries.map(([key, value]) => (
+        <label key={key} className="block space-y-1">
+          <span className="block font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+            {key}
+          </span>
+          <Input
+            defaultValue={value == null ? "" : String(value)}
+            onBlur={(e) => onChange(key, e.target.value)}
+          />
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function SourcesPanel({
+  docs,
+  patches,
+  onRemove,
+}: {
+  docs: ExtractedDoc[];
+  patches: FormPatch[];
+  onRemove: (sourceLabel: string) => void;
+}) {
+  const counts = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const p of patches) {
+      out[p.sourceLabel] = (out[p.sourceLabel] ?? 0) + 1;
+    }
+    return out;
+  }, [patches]);
+
+  return (
+    <section className="rounded-[3px] border border-[var(--rule)] bg-[var(--paper-2)]">
+      <header className="flex items-center justify-between border-b border-[var(--rule-soft)] px-4 py-2.5">
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+          Source documents
+        </span>
+        <Badge variant="outline">{docs.length}</Badge>
+      </header>
+      <ul className="divide-y divide-[var(--rule-soft)] px-4">
+        {docs.map((d) => (
+          <li
+            key={d.sourceLabel + d.extractedAt}
+            className="flex items-baseline justify-between gap-3 py-2"
+          >
+            <span className="min-w-0 flex-1">
+              <span
+                className="block truncate text-[13px] tracking-[-0.005em] text-[var(--ink)]"
+                style={{ fontFamily: "var(--serif)" }}
+              >
+                {d.sourceLabel}
+              </span>
+              <span className="block font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)]">
+                {d.source} ·{" "}
+                {new Date(d.extractedAt).toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}{" "}
+                · {counts[d.sourceLabel] ?? 0} entries
+              </span>
+              {d.rawSummary ? (
+                <span
+                  className="mt-1 block max-w-[60ch] text-[12px] italic text-[var(--ink-2)]"
+                  style={{ fontFamily: "var(--serif)" }}
+                >
+                  {d.rawSummary}
+                </span>
+              ) : null}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onRemove(d.sourceLabel)}
+              aria-label={`Remove ${d.sourceLabel}`}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

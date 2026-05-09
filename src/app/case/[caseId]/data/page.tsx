@@ -31,7 +31,7 @@ export default function CaseDataPage({
   const router = useRouter();
   const record = useCaseStore((s) => s.cases[caseId]);
   const clearBankData = useCaseStore((s) => s.clearBankData);
-  const setBundle = useReviewStore((s) => s.setBundle);
+  const addDoc = useReviewStore((s) => s.addDoc);
   const [visible, setVisible] = useState(PAGE_SIZE);
 
   const transactions = record?.bankData?.doc.transactions ?? [];
@@ -92,7 +92,7 @@ export default function CaseDataPage({
       );
       return;
     }
-    setBundle(caseId, { doc, patches });
+    addDoc(caseId, { doc, patches });
     router.push(`/case/${caseId}/review`);
   };
 

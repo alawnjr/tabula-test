@@ -11,6 +11,13 @@ import { cn } from "@/lib/utils";
 
 type Status = "idle" | "uploading" | "extracting" | "teller" | "error";
 
+type Progress = {
+  index: number;
+  total: number;
+  filename: string;
+  phase: "uploading" | "extracting";
+};
+
 type TellerEnrollment = {
   accessToken: string;
   user?: { id: string };
@@ -64,9 +71,10 @@ type TxWindow = 6 | 12;
 export function IntegrationsPanel({ caseId }: { caseId: string }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const setBundle = useReviewStore((s) => s.setBundle);
+  const addDoc = useReviewStore((s) => s.addDoc);
   const setBankData = useCaseStore((s) => s.setBankData);
   const [status, setStatus] = useState<Status>("idle");
+  const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [txWindow, setTxWindow] = useState<TxWindow>(6);
 
@@ -79,41 +87,67 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
     loadTellerScript().catch(() => {});
   }, [applicationId]);
 
-  const handleFile: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
-    const file = e.target.files?.[0];
+  const handleFiles: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
+    if (files.length === 0) return;
     setError(null);
-    try {
-      setStatus("uploading");
-      const fd = new FormData();
-      fd.append("file", file);
-      const upRes = await fetch("/api/upload", { method: "POST", body: fd });
-      if (!upRes.ok) {
-        const j = await upRes.json().catch(() => ({}));
-        throw new Error(j.error ?? `Upload failed (${upRes.status})`);
-      }
-      const { docId } = (await upRes.json()) as { docId: string };
 
-      setStatus("extracting");
-      const exRes = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId }),
-      });
-      if (!exRes.ok) {
-        const j = await exRes.json().catch(() => ({}));
-        throw new Error(j.error ?? `Extraction failed (${exRes.status})`);
+    let added = 0;
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setProgress({
+          index: i + 1,
+          total: files.length,
+          filename: file.name,
+          phase: "uploading",
+        });
+        setStatus("uploading");
+
+        const fd = new FormData();
+        fd.append("file", file);
+        const upRes = await fetch("/api/upload", { method: "POST", body: fd });
+        if (!upRes.ok) {
+          const j = await upRes.json().catch(() => ({}));
+          throw new Error(
+            j.error ?? `Upload failed for ${file.name} (${upRes.status})`
+          );
+        }
+        const { docId } = (await upRes.json()) as { docId: string };
+
+        setProgress({
+          index: i + 1,
+          total: files.length,
+          filename: file.name,
+          phase: "extracting",
+        });
+        setStatus("extracting");
+
+        const exRes = await fetch("/api/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ docId }),
+        });
+        if (!exRes.ok) {
+          const j = await exRes.json().catch(() => ({}));
+          throw new Error(
+            j.error ?? `Extraction failed for ${file.name} (${exRes.status})`
+          );
+        }
+        const data = (await exRes.json()) as {
+          extracted: ExtractedDoc;
+          patches: FormPatch[];
+        };
+        addDoc(caseId, { doc: data.extracted, patches: data.patches });
+        added += 1;
       }
-      const data = (await exRes.json()) as {
-        extracted: ExtractedDoc;
-        patches: FormPatch[];
-      };
-      setBundle(caseId, { doc: data.extracted, patches: data.patches });
       setStatus("idle");
-      router.push(`/case/${caseId}/review`);
+      setProgress(null);
+      if (added > 0) router.push(`/case/${caseId}/review`);
     } catch (err) {
       setStatus("error");
+      setProgress(null);
       setError(err instanceof Error ? err.message : String(err));
     }
   };
@@ -144,7 +178,7 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
     if (data.extracted.source === "teller") {
       setBankData(caseId, data.extracted);
     }
-    setBundle(caseId, { doc: data.extracted, patches: data.patches });
+    addDoc(caseId, { doc: data.extracted, patches: data.patches });
     setStatus("idle");
     router.push(`/case/${caseId}/review`);
   };
@@ -191,6 +225,13 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
   const busy =
     status === "uploading" || status === "extracting" || status === "teller";
 
+  const uploadLabel = (() => {
+    if (!progress) return "Upload documents";
+    const verb =
+      progress.phase === "uploading" ? "Uploading" : "Extracting";
+    return `${verb}… ${progress.index}/${progress.total}`;
+  })();
+
   return (
     <section className="rounded-[3px] border border-[var(--rule)] bg-[var(--paper-2)]">
       <div className="flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
@@ -205,8 +246,8 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
             Pull data automatically
           </h3>
           <p className="text-[11px] text-[var(--mute)]">
-            Upload a financial document, or connect a bank, then review the
-            proposed schedule entries.
+            Upload one or more financial documents, or connect a bank, then
+            review the proposed schedule entries.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -221,11 +262,7 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
             ) : (
               <FileUp className="h-3 w-3" />
             )}
-            {status === "uploading"
-              ? "Uploading…"
-              : status === "extracting"
-              ? "Extracting…"
-              : "Upload document"}
+            {uploadLabel}
           </Button>
 
           <div
@@ -266,11 +303,18 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
             ref={fileRef}
             type="file"
             accept="application/pdf,image/png,image/jpeg"
+            multiple
             className="hidden"
-            onChange={handleFile}
+            onChange={handleFiles}
           />
         </div>
       </div>
+      {progress ? (
+        <p className="border-t border-[var(--rule-soft)] px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--mute)] truncate">
+          {progress.phase === "uploading" ? "Uploading" : "Extracting"} ·{" "}
+          {progress.filename}
+        </p>
+      ) : null}
       {error ? (
         <p className="border-t border-[var(--rule-soft)] bg-[color-mix(in_oklch,var(--destructive)_8%,var(--paper-2))] px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--destructive)]">
           {error}

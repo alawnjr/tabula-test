@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCaseStore } from "@/state/case-store";
+import { useReviewStore } from "@/state/review-store";
 import { FORM_ORDER, getSchema } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
 export function CaseSidebar({ caseId }: { caseId: string }) {
   const pathname = usePathname();
   const record = useCaseStore((s) => s.cases[caseId]);
+  const reviewCount = useReviewStore(
+    (s) => s.bundles[caseId]?.patches.length ?? 0
+  );
   if (!record) return null;
   const ids = FORM_ORDER[record.chapter];
 
@@ -39,6 +43,8 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
           href={reviewHref}
           label="Review queue"
           active={pathname === reviewHref}
+          chip={reviewCount > 0 ? String(reviewCount) : undefined}
+          chipTone={reviewCount > 0 ? "deep" : "muted"}
         />
       </div>
 
