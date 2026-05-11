@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { ChapterId } from "@/lib/schemas/types";
-import type { ExtractedDoc } from "@/lib/integrations/types";
+import type { ExtractedDoc, ExtractionSource } from "@/lib/integrations/types";
 
 export type FieldValue =
   | string
@@ -23,6 +23,19 @@ export type PersistedBankData = {
   savedAt: string;
 };
 
+// Provenance for a field that was populated via the review/intake flow.
+// Cleared on the next manual edit so the indicator only sticks while the
+// user hasn't touched it.
+export type AutofillMark = {
+  source: ExtractionSource;
+  sourceLabel: string;
+  appliedAt: string;
+};
+
+// Per-form map keyed by joined field path. Path components are field IDs or
+// numeric indices, neither of which contains "/".
+type FormAutofill = Record<string, AutofillMark>;
+
 export type CaseRecord = {
   id: string;
   chapter: ChapterId;
@@ -31,6 +44,7 @@ export type CaseRecord = {
   updatedAt: string;
   forms: Record<string, FormData>;
   bankData?: PersistedBankData;
+  autofilled?: Record<string, FormAutofill>;
 };
 
 type CaseStore = {
@@ -44,6 +58,9 @@ type CaseStore = {
   setFieldValue: (formId: string, path: string[], value: FieldValue) => void;
   appendRepeatingItem: (formId: string, groupId: string) => void;
   removeRepeatingItem: (formId: string, groupId: string, index: number) => void;
+
+  markAutofilled: (formId: string, path: string[], mark: AutofillMark) => void;
+  clearAutofillMark: (formId: string, path: string[]) => void;
 
   setBankData: (caseId: string, doc: ExtractedDoc) => void;
   clearBankData: (caseId: string) => void;
@@ -92,6 +109,77 @@ function setDeep(
     value
   );
   return next;
+}
+
+function pathKey(path: string[]): string {
+  return path.join("/");
+}
+
+function withFormAutofill(
+  autofilled: Record<string, FormAutofill> | undefined,
+  formId: string,
+  next: FormAutofill
+): Record<string, FormAutofill> {
+  const out = { ...(autofilled ?? {}) };
+  if (Object.keys(next).length === 0) {
+    delete out[formId];
+  } else {
+    out[formId] = next;
+  }
+  return out;
+}
+
+function clearAutofillAt(
+  autofilled: Record<string, FormAutofill> | undefined,
+  formId: string,
+  path: string[]
+): Record<string, FormAutofill> | undefined {
+  const formMarks = autofilled?.[formId];
+  if (!formMarks) return autofilled;
+  const key = pathKey(path);
+  if (!(key in formMarks)) return autofilled;
+  const next = { ...formMarks };
+  delete next[key];
+  return withFormAutofill(autofilled, formId, next);
+}
+
+// When a repeating-group item is removed, drop marks at that index and
+// shift higher-index marks down by one so they stay attached to the right row.
+function shiftAutofillOnRemove(
+  autofilled: Record<string, FormAutofill> | undefined,
+  formId: string,
+  groupId: string,
+  removedIndex: number
+): Record<string, FormAutofill> | undefined {
+  const formMarks = autofilled?.[formId];
+  if (!formMarks) return autofilled;
+  let changed = false;
+  const next: FormAutofill = {};
+  for (const [key, mark] of Object.entries(formMarks)) {
+    const parts = key.split("/");
+    if (parts[0] !== groupId) {
+      next[key] = mark;
+      continue;
+    }
+    const idx = Number(parts[1]);
+    if (!Number.isFinite(idx)) {
+      next[key] = mark;
+      continue;
+    }
+    if (idx === removedIndex) {
+      changed = true;
+      continue;
+    }
+    if (idx > removedIndex) {
+      parts[1] = String(idx - 1);
+      next[parts.join("/")] = mark;
+      changed = true;
+    } else {
+      next[key] = mark;
+    }
+  }
+  if (!changed) return autofilled;
+  return withFormAutofill(autofilled, formId, next);
 }
 
 const debtor1NameKeys = [
@@ -164,6 +252,9 @@ export const useCaseStore = create<CaseStore>()(
           const newForms = { ...c.forms, [formId]: updatedForm };
           const debtorName =
             formId === "101" ? deriveDebtorName(newForms) : c.debtorName;
+          // A direct write clears the autofill mark; the review apply flow
+          // re-marks the field afterwards via markAutofilled.
+          const autofilled = clearAutofillAt(c.autofilled, formId, path);
           return {
             cases: {
               ...s.cases,
@@ -171,6 +262,7 @@ export const useCaseStore = create<CaseStore>()(
                 ...c,
                 forms: newForms,
                 debtorName,
+                autofilled,
                 updatedAt: nowIso(),
               },
             },
@@ -214,11 +306,49 @@ export const useCaseStore = create<CaseStore>()(
             ...c.forms,
             [formId]: { ...formData, [groupId]: next },
           };
+          const autofilled = shiftAutofillOnRemove(
+            c.autofilled,
+            formId,
+            groupId,
+            index
+          );
           return {
             cases: {
               ...s.cases,
-              [id]: { ...c, forms: newForms, updatedAt: nowIso() },
+              [id]: { ...c, forms: newForms, autofilled, updatedAt: nowIso() },
             },
+          };
+        }),
+
+      markAutofilled: (formId, path, mark) =>
+        set((s) => {
+          const id = s.activeCaseId;
+          if (!id) return s;
+          const c = s.cases[id];
+          if (!c) return s;
+          const formMarks: FormAutofill = {
+            ...(c.autofilled?.[formId] ?? {}),
+            [pathKey(path)]: mark,
+          };
+          const autofilled = withFormAutofill(c.autofilled, formId, formMarks);
+          return {
+            cases: {
+              ...s.cases,
+              [id]: { ...c, autofilled, updatedAt: nowIso() },
+            },
+          };
+        }),
+
+      clearAutofillMark: (formId, path) =>
+        set((s) => {
+          const id = s.activeCaseId;
+          if (!id) return s;
+          const c = s.cases[id];
+          if (!c) return s;
+          const autofilled = clearAutofillAt(c.autofilled, formId, path);
+          if (autofilled === c.autofilled) return s;
+          return {
+            cases: { ...s.cases, [id]: { ...c, autofilled } },
           };
         }),
 
@@ -261,6 +391,14 @@ export const useCaseStore = create<CaseStore>()(
               updatedAt: now,
               forms,
               bankData: src.bankData,
+              autofilled: src.autofilled
+                ? Object.fromEntries(
+                    Object.entries(src.autofilled).map(([k, v]) => [
+                      k,
+                      { ...v },
+                    ])
+                  )
+                : undefined,
             },
           },
           activeCaseId: id,
@@ -310,6 +448,14 @@ export const useCaseStore = create<CaseStore>()(
     }
   )
 );
+
+export function getAutofillMark(
+  c: CaseRecord | undefined,
+  formId: string,
+  path: string[]
+): AutofillMark | undefined {
+  return c?.autofilled?.[formId]?.[pathKey(path)];
+}
 
 export function getValueAtPath(
   data: FormData | undefined,

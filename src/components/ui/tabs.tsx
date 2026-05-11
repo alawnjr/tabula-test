@@ -62,11 +62,13 @@ export function TabsTrigger({
   children,
   index,
   className,
+  indicator,
 }: {
   value: string;
   children: React.ReactNode;
   index?: number;
   className?: string;
+  indicator?: React.ReactNode;
 }) {
   const ctx = React.useContext(TabsContext);
   if (!ctx) throw new Error("TabsTrigger must be inside Tabs");
@@ -103,6 +105,7 @@ export function TabsTrigger({
       >
         {children}
       </span>
+      {indicator}
       <span
         aria-hidden
         className={cn(

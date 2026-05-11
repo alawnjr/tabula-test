@@ -179,8 +179,15 @@ export default function ReviewPage({
   const applyPatch = (p: FormPatch) => {
     const setField = useCaseStore.getState().setFieldValue;
     const append = useCaseStore.getState().appendRepeatingItem;
+    const mark = useCaseStore.getState().markAutofilled;
+    const markInfo = {
+      source: p.source,
+      sourceLabel: p.sourceLabel,
+      appliedAt: new Date().toISOString(),
+    };
     if (p.op.kind === "setField") {
       setField(p.formId, p.op.path, p.op.value as never);
+      mark(p.formId, p.op.path, markInfo);
     } else {
       const formData = useCaseStore.getState().cases[caseId]?.forms[p.formId];
       const existing = Array.isArray(formData?.[p.op.groupId])
@@ -189,11 +196,9 @@ export default function ReviewPage({
       const newIndex = existing.length;
       append(p.formId, p.op.groupId);
       for (const [k, v] of Object.entries(p.op.fields)) {
-        setField(
-          p.formId,
-          [p.op.groupId, String(newIndex), k],
-          v as never
-        );
+        const fieldPath = [p.op.groupId, String(newIndex), k];
+        setField(p.formId, fieldPath, v as never);
+        mark(p.formId, fieldPath, markInfo);
       }
     }
   };

@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSchema } from "@/lib/schemas";
+import {
+  computeSectionCompletion,
+  type SectionCompletion,
+} from "@/lib/completion";
+import { useCaseStore } from "@/state/case-store";
+import { cn } from "@/lib/utils";
 import { SectionRenderer } from "./SectionRenderer";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -15,6 +21,24 @@ export function FormRenderer({
   const schema = getSchema(formId);
   const initial = schema?.sections[0]?.id ?? "";
   const [active, setActive] = useState(initial);
+
+  // Subscribe to this form's data so per-section indicators update as the
+  // user types. We deliberately scope to a single form to keep re-renders
+  // tight.
+  const formData = useCaseStore((s) => {
+    const id = s.activeCaseId;
+    if (!id) return undefined;
+    return s.cases[id]?.forms[formId];
+  });
+
+  const sectionCompletion = useMemo(() => {
+    const out: Record<string, SectionCompletion> = {};
+    if (!schema) return out;
+    for (const sec of schema.sections) {
+      out[sec.id] = computeSectionCompletion(sec, formData);
+    }
+    return out;
+  }, [schema, formData]);
 
   // Reset to first section + scroll to top when navigating between forms.
   useEffect(() => {
@@ -109,7 +133,14 @@ export function FormRenderer({
 
         <TabsList className="px-2 lg:px-6">
           {sections.map((s, i) => (
-            <TabsTrigger key={s.id} value={s.id} index={i}>
+            <TabsTrigger
+              key={s.id}
+              value={s.id}
+              index={i}
+              indicator={
+                <SectionDot completion={sectionCompletion[s.id]} />
+              }
+            >
               {s.title}
             </TabsTrigger>
           ))}
@@ -121,9 +152,14 @@ export function FormRenderer({
         {sections.map((s, i) => (
           <TabsContent key={s.id} value={s.id} className="space-y-6">
             <header className="space-y-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)]">
-                Section {String(i + 1).padStart(2, "0")} of{" "}
-                {String(sections.length).padStart(2, "0")}
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)] flex items-center gap-2">
+                <span>
+                  Section {String(i + 1).padStart(2, "0")} of{" "}
+                  {String(sections.length).padStart(2, "0")}
+                </span>
+                <SectionEyebrowStatus
+                  completion={sectionCompletion[s.id]}
+                />
               </span>
               <h2
                 className="text-[22px] leading-[1.15] tracking-[-0.02em] text-[var(--ink)]"
@@ -211,5 +247,85 @@ function FormTopBar({
         </div>
       </div>
     </div>
+  );
+}
+
+function SectionDot({ completion }: { completion?: SectionCompletion }) {
+  if (!completion || completion.total === 0) return null;
+  const { filled, total, requiredMissing } = completion;
+  const complete = filled === total;
+  const tone = requiredMissing > 0
+    ? "danger"
+    : complete
+    ? "complete"
+    : filled === 0
+    ? "empty"
+    : "partial";
+  const title =
+    requiredMissing > 0
+      ? `${requiredMissing} required missing · ${filled} of ${total} filled`
+      : complete
+      ? `All ${total} fields filled`
+      : `${filled} of ${total} filled`;
+  return (
+    <span
+      aria-label={title}
+      title={title}
+      className={cn(
+        "inline-flex items-center justify-center font-mono text-[8.5px] tracking-[0.05em] tabular-nums",
+        tone === "danger" && "text-[var(--destructive)]",
+        tone === "complete" && "text-[var(--accent-deep)]",
+        tone === "empty" && "text-[var(--mute)]",
+        tone === "partial" && "text-[var(--ink-2)]"
+      )}
+    >
+      {tone === "complete" ? (
+        <span className="text-[10px] leading-none">✓</span>
+      ) : tone === "empty" ? (
+        <span
+          aria-hidden
+          className="block h-1.5 w-1.5 rounded-full border border-current"
+        />
+      ) : (
+        <span>
+          {filled}
+          <span className="opacity-50">/{total}</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
+function SectionEyebrowStatus({
+  completion,
+}: {
+  completion?: SectionCompletion;
+}) {
+  if (!completion || completion.total === 0) return null;
+  const { filled, total, requiredMissing } = completion;
+  const complete = filled === total;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 tabular-nums",
+        requiredMissing > 0
+          ? "text-[var(--destructive)]"
+          : complete
+          ? "text-[var(--accent-deep)]"
+          : "text-[var(--ink-2)]"
+      )}
+    >
+      <span aria-hidden>·</span>
+      <span>
+        {complete
+          ? `Complete · ${total} fields`
+          : `${filled} of ${total} filled`}
+      </span>
+      {requiredMissing > 0 ? (
+        <span title={`${requiredMissing} required missing`}>
+          · {requiredMissing} required missing
+        </span>
+      ) : null}
+    </span>
   );
 }
