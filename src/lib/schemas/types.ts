@@ -42,7 +42,12 @@ export type Section = {
   items: SectionItem[];
 };
 
-export type ChapterId = "chapter7" | "chapter13" | "meansTest";
+export type ChapterId =
+  | "chapter7"
+  | "chapter13"
+  | "meansTest"
+  | "personalInjury"
+  | "realEstate";
 
 export type FormSchema = {
   id: string;

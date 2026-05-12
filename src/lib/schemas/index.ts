@@ -13,6 +13,16 @@ import { schedule106H } from "./schedule-106h-codebtors";
 import { schedule106I } from "./schedule-106i-income";
 import { schedule106J } from "./schedule-106j-expenses";
 import { schedule106Sum } from "./schedule-106sum-summary";
+import { piIntake } from "./pi-intake";
+import { piMedical } from "./pi-medical";
+import { piDamages } from "./pi-damages";
+import { piInsurance } from "./pi-insurance";
+import { piClaim } from "./pi-claim";
+import { reParties } from "./re-parties";
+import { reProperty } from "./re-property";
+import { reTransaction } from "./re-transaction";
+import { reFinancing } from "./re-financing";
+import { reClosing } from "./re-closing";
 import type { ChapterId, FormSchema } from "./types";
 
 export const SCHEMAS: Record<string, FormSchema> = {
@@ -31,6 +41,16 @@ export const SCHEMAS: Record<string, FormSchema> = {
   "122A-1": form122A1,
   "122A-2": form122A2,
   "122Result": form122Result,
+  "pi-intake": piIntake,
+  "pi-medical": piMedical,
+  "pi-damages": piDamages,
+  "pi-insurance": piInsurance,
+  "pi-claim": piClaim,
+  "re-parties": reParties,
+  "re-property": reProperty,
+  "re-transaction": reTransaction,
+  "re-financing": reFinancing,
+  "re-closing": reClosing,
 };
 
 export const FORM_ORDER: Record<ChapterId, string[]> = {
@@ -62,6 +82,20 @@ export const FORM_ORDER: Record<ChapterId, string[]> = {
     "107",
     "113",
   ],
+  personalInjury: [
+    "pi-intake",
+    "pi-medical",
+    "pi-damages",
+    "pi-insurance",
+    "pi-claim",
+  ],
+  realEstate: [
+    "re-parties",
+    "re-property",
+    "re-transaction",
+    "re-financing",
+    "re-closing",
+  ],
 };
 
 export function getSchema(formId: string): FormSchema | undefined {
@@ -71,7 +105,16 @@ export function getSchema(formId: string): FormSchema | undefined {
 export function chapterLabel(chapter: ChapterId): string {
   if (chapter === "chapter7") return "Chapter 7";
   if (chapter === "chapter13") return "Chapter 13";
-  return "Means test";
+  if (chapter === "meansTest") return "Means test";
+  if (chapter === "personalInjury") return "Personal Injury";
+  if (chapter === "realEstate") return "Real Estate";
+  return chapter;
+}
+
+export function practiceAreaOf(chapter: ChapterId): "bankruptcy" | "personalInjury" | "realEstate" {
+  if (chapter === "personalInjury") return "personalInjury";
+  if (chapter === "realEstate") return "realEstate";
+  return "bankruptcy";
 }
 
 export * from "./types";

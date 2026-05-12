@@ -7,7 +7,9 @@ export default defineSchema({
     chapter: v.union(
       v.literal("chapter7"),
       v.literal("chapter13"),
-      v.literal("meansTest")
+      v.literal("meansTest"),
+      v.literal("personalInjury"),
+      v.literal("realEstate")
     ),
     debtorName: v.string(),
     createdAt: v.string(),

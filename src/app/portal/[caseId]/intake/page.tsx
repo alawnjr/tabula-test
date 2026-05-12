@@ -11,8 +11,39 @@ import { SectionRenderer } from "@/components/form-renderer/SectionRenderer";
 import { Button } from "@/components/ui/button";
 import type { ChapterId } from "@/lib/schemas/types";
 
-// Sections of Form 101 that the debtor fills in (personal info only)
-const DEBTOR_SECTIONS = ["debtor1", "residence"];
+function intakeConfig(chapter: ChapterId): {
+  formId: string;
+  sectionIds: string[];
+  title: string;
+  description: string;
+} {
+  if (chapter === "personalInjury") {
+    return {
+      formId: "pi-intake",
+      sectionIds: ["client", "incident"],
+      title: "Your information",
+      description:
+        "Fill in your personal details and describe the incident. Your attorney will review this before proceeding.",
+    };
+  }
+  if (chapter === "realEstate") {
+    return {
+      formId: "re-parties",
+      sectionIds: ["client"],
+      title: "Your information",
+      description:
+        "Fill in your contact details and your role in this transaction. Your attorney will review this before proceeding.",
+    };
+  }
+  // Bankruptcy (chapter7, chapter13, meansTest)
+  return {
+    formId: "101",
+    sectionIds: ["debtor1", "residence"],
+    title: "Personal information",
+    description:
+      "Fill in your name and address. Your attorney will review this information before finalizing your petition.",
+  };
+}
 
 export default function PortalIntakePage({
   params,
@@ -22,6 +53,7 @@ export default function PortalIntakePage({
   const { caseId } = use(params);
   const raw = useQuery(api.cases.get, { id: caseId as Id<"cases"> });
   const updateAsDebtor = useMutation(api.cases.updateAsDebtor);
+  const updateAsClient = useMutation(api.cases.updateAsClient);
 
   const loadCase = useCaseStore((s) => s.loadCase);
   const setActive = useCaseStore((s) => s.setActiveCase);
@@ -30,7 +62,6 @@ export default function PortalIntakePage({
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Hydrate the case into Zustand so field components can read/write it
   useEffect(() => {
     if (raw) {
       const data = (raw.data ?? {}) as Record<string, unknown>;
@@ -57,20 +88,35 @@ export default function PortalIntakePage({
     );
   }
 
-  const schema = getSchema("101");
+  const chapter = raw.chapter as ChapterId;
+  const config = intakeConfig(chapter);
+  const schema = getSchema(config.formId);
   if (!schema) return null;
-  const sections = schema.sections.filter((s) => DEBTOR_SECTIONS.includes(s.id));
+  const sections = schema.sections.filter((s) =>
+    config.sectionIds.includes(s.id)
+  );
 
   async function handleSave() {
     setSaving(true);
     setSaved(false);
     try {
-      const form101 = useCaseStore.getState().cases[caseId]?.forms["101"] ?? {};
-      await updateAsDebtor({
-        id: caseId as Id<"cases">,
-        form101Data: form101,
-        updatedAt: new Date().toISOString(),
-      });
+      const formData =
+        useCaseStore.getState().cases[caseId]?.forms[config.formId] ?? {};
+      const now = new Date().toISOString();
+      if (chapter === "chapter7" || chapter === "chapter13" || chapter === "meansTest") {
+        await updateAsDebtor({
+          id: caseId as Id<"cases">,
+          form101Data: formData,
+          updatedAt: now,
+        });
+      } else {
+        await updateAsClient({
+          id: caseId as Id<"cases">,
+          formId: config.formId,
+          formData,
+          updatedAt: now,
+        });
+      }
       setSaved(true);
     } finally {
       setSaving(false);
@@ -90,11 +136,9 @@ export default function PortalIntakePage({
           className="mt-2 text-[22px] tracking-[-0.02em] text-[var(--ink)]"
           style={{ fontFamily: "var(--serif)" }}
         >
-          Personal information
+          {config.title}
         </h1>
-        <p className="text-[13px] text-[var(--ink-2)]">
-          Fill in your name and address. Your attorney will review this information before finalizing your petition.
-        </p>
+        <p className="text-[13px] text-[var(--ink-2)]">{config.description}</p>
       </div>
 
       <div className="space-y-6">
@@ -102,7 +146,7 @@ export default function PortalIntakePage({
           <SectionRenderer
             key={section.id}
             section={section}
-            formId="101"
+            formId={config.formId}
           />
         ))}
       </div>

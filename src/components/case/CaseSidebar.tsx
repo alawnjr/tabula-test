@@ -29,7 +29,13 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
   const filesHref = `/case/${caseId}/files`;
 
   const meansTestIds = ["122A-1", "122A-2", "122Result"];
+  // Only show the linked means-test section for bankruptcy chapters (not PI/RE)
+  const isBankruptcy =
+    record.chapter === "chapter7" ||
+    record.chapter === "chapter13" ||
+    record.chapter === "meansTest";
   const hasMeansTestData =
+    isBankruptcy &&
     record.chapter !== "meansTest" &&
     meansTestIds.some(
       (id) => Object.keys(record.forms[id] ?? {}).length > 0

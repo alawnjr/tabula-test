@@ -64,7 +64,9 @@ export const create = mutation({
     chapter: v.union(
       v.literal("chapter7"),
       v.literal("chapter13"),
-      v.literal("meansTest")
+      v.literal("meansTest"),
+      v.literal("personalInjury"),
+      v.literal("realEstate")
     ),
     debtorName: v.string(),
     createdAt: v.string(),
@@ -107,6 +109,34 @@ export const shareWithDebtor = mutation({
     if (!existing || existing.userId !== identity.subject)
       throw new Error("Not found");
     await ctx.db.patch(id, { debtorEmail: email ?? undefined });
+  },
+});
+
+export const updateAsClient = mutation({
+  args: {
+    id: v.id("cases"),
+    formId: v.string(),
+    formData: v.any(),
+    updatedAt: v.string(),
+  },
+  handler: async (ctx, { id, formId, formData, updatedAt }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const existing = await ctx.db.get(id);
+    if (!existing) throw new Error("Not found");
+    const isOwner = existing.userId === identity.subject;
+    const isDebtor =
+      existing.debtorEmail != null && existing.debtorEmail === identity.email;
+    if (!isOwner && !isDebtor) throw new Error("Not authorized");
+    const currentData = (existing.data ?? {}) as Record<string, unknown>;
+    const currentForms = (currentData.forms ?? {}) as Record<string, unknown>;
+    await ctx.db.patch(id, {
+      updatedAt,
+      data: {
+        ...currentData,
+        forms: { ...currentForms, [formId]: formData },
+      },
+    });
   },
 });
 

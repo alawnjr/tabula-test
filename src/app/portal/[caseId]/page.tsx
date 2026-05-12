@@ -6,7 +6,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
-import { chapterLabel, FORM_ORDER } from "@/lib/schemas";
+import { chapterLabel, practiceAreaOf } from "@/lib/schemas";
 import { PortalProgress } from "@/components/portal/PortalProgress";
 import { caseSummary } from "@/lib/derived";
 import { formatCurrency } from "@/lib/currency";
@@ -51,26 +51,42 @@ export default function PortalCaseOverview({
     forms: (data.forms as any) ?? {},
   };
 
-  const s = raw.chapter !== "meansTest" ? caseSummary(record) : null;
+  const s =
+    practiceAreaOf(raw.chapter as ChapterId) === "bankruptcy" &&
+    raw.chapter !== "meansTest"
+      ? caseSummary(record)
+      : null;
   const idShort = raw._id.slice(-6).toUpperCase();
+
+  const practiceArea = practiceAreaOf(raw.chapter as ChapterId);
+  const uploadDesc =
+    practiceArea === "personalInjury"
+      ? "Medical records, police reports, insurance documents"
+      : practiceArea === "realEstate"
+      ? "Purchase agreements, title documents, financial records"
+      : "Bank statements, pay stubs, tax returns";
+  const formsDesc =
+    practiceArea === "bankruptcy"
+      ? "Official court forms pre-filled with your data"
+      : "Case documents pre-filled with your data";
 
   const actions = [
     {
       href: `/portal/${caseId}/intake`,
-      label: "Personal info",
-      description: "Fill in your name, address, and contact details",
+      label: "Your information",
+      description: "Fill in your personal details and case information",
       icon: "📝",
     },
     {
       href: `/portal/${caseId}/upload`,
       label: "Upload documents",
-      description: "Bank statements, pay stubs, tax returns",
+      description: uploadDesc,
       icon: "📄",
     },
     {
       href: `/portal/${caseId}/forms`,
       label: "Download forms",
-      description: "Official court forms pre-filled with your data",
+      description: formsDesc,
       icon: "⬇️",
     },
   ];
@@ -89,7 +105,13 @@ export default function PortalCaseOverview({
             className="mt-2 text-[24px] tracking-[-0.02em] text-[var(--ink)]"
             style={{ fontFamily: "var(--serif)" }}
           >
-            {raw.debtorName || <em className="text-[var(--mute)]">Unnamed debtor</em>}
+            {raw.debtorName || (
+            <em className="text-[var(--mute)]">
+              {practiceAreaOf(raw.chapter as ChapterId) === "bankruptcy"
+                ? "Unnamed debtor"
+                : "Unnamed client"}
+            </em>
+          )}
           </h1>
           <div className="flex items-center gap-2">
             <Badge variant="outline">{chapterLabel(raw.chapter as ChapterId)}</Badge>

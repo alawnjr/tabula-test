@@ -8,7 +8,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { useCaseStore } from "@/state/case-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { chapterLabel } from "@/lib/schemas";
+import { chapterLabel, practiceAreaOf } from "@/lib/schemas";
 import { ImportExport } from "./ImportExport";
 
 export function CaseHeader({ caseId }: { caseId: string }) {
@@ -68,7 +68,13 @@ export function CaseHeader({ caseId }: { caseId: string }) {
           </span>
 
           <Link
-            href="/"
+            href={
+              record.chapter === "personalInjury"
+                ? "/personal-injury"
+                : record.chapter === "realEstate"
+                ? "/real-estate"
+                : "/bankruptcy"
+            }
             className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--mute)] hover:text-[var(--ink)] shrink-0"
           >
             ← Cases
@@ -101,7 +107,13 @@ export function CaseHeader({ caseId }: { caseId: string }) {
                 style={{ fontFamily: "var(--serif)" }}
                 title="Click to rename"
               >
-                {record.debtorName || <em className="text-[var(--mute)]">Untitled debtor</em>}
+                {record.debtorName || (
+                  <em className="text-[var(--mute)]">
+                    {practiceAreaOf(record.chapter) === "bankruptcy"
+                      ? "Untitled debtor"
+                      : "Untitled client"}
+                  </em>
+                )}
               </button>
             )}
             <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--mute)] shrink-0">
