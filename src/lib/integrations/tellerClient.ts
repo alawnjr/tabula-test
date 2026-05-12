@@ -1,11 +1,10 @@
 // Minimal Teller HTTP client. Teller has no official Node SDK; calls go to
 // https://api.teller.io/* using HTTP Basic auth with the access_token as the
 // username and an empty password. Production + development environments also
-// require client-side mTLS — set TELLER_CERT_PATH / TELLER_KEY_PATH (file
-// paths, PEM-encoded) to enable. Sandbox does not need mTLS.
+// require client-side mTLS — set TELLER_CERT_B64 / TELLER_KEY_B64 (base64-
+// encoded PEM) to enable. Sandbox does not need mTLS.
 
 import https from "node:https";
-import { readFileSync } from "node:fs";
 
 const BASE_URL = "https://api.teller.io";
 const API_VERSION = "2020-10-12";
@@ -14,14 +13,14 @@ let cachedAgent: https.Agent | null | undefined;
 
 function getAgent(): https.Agent | undefined {
   if (cachedAgent !== undefined) return cachedAgent ?? undefined;
-  const certPath = process.env.TELLER_CERT_PATH;
-  const keyPath = process.env.TELLER_KEY_PATH;
-  if (!certPath || !keyPath) {
+  const certB64 = process.env.TELLER_CERT_B64;
+  const keyB64  = process.env.TELLER_KEY_B64;
+  if (!certB64 || !keyB64) {
     cachedAgent = null;
     return undefined;
   }
-  const cert = readFileSync(certPath);
-  const key = readFileSync(keyPath);
+  const cert = Buffer.from(certB64, "base64");
+  const key  = Buffer.from(keyB64,  "base64");
   cachedAgent = new https.Agent({ cert, key, keepAlive: true });
   return cachedAgent;
 }
