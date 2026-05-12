@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { useCaseStore } from "@/state/case-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +12,8 @@ import { ImportExport } from "./ImportExport";
 
 export function CaseHeader({ caseId }: { caseId: string }) {
   const record = useCaseStore((s) => s.cases[caseId]);
+  const deleteCase = useCaseStore((s) => s.deleteCase);
+  const convexRemove = useMutation(api.cases.remove);
   if (!record) return null;
   const idShort = record.id.slice(-6).toUpperCase();
 
@@ -61,9 +66,10 @@ export function CaseHeader({ caseId }: { caseId: string }) {
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => {
+            onClick={async () => {
               if (confirm("Delete this case? This cannot be undone.")) {
-                useCaseStore.getState().deleteCase(caseId);
+                await convexRemove({ id: caseId as Id<"cases"> });
+                deleteCase(caseId);
                 window.location.href = "/";
               }
             }}

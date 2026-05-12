@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import type { ChapterId } from "@/lib/schemas/types";
 import type { ExtractedDoc, ExtractionSource } from "@/lib/integrations/types";
 
@@ -50,6 +49,11 @@ export type CaseRecord = {
 type CaseStore = {
   cases: Record<string, CaseRecord>;
   activeCaseId: string | null;
+  isLoaded: boolean;
+
+  loadCase: (record: CaseRecord) => void;
+  setCases: (records: CaseRecord[]) => void;
+  setLoaded: () => void;
 
   createCase: (chapter: ChapterId) => string;
   setActiveCase: (id: string | null) => void;
@@ -195,11 +199,23 @@ function deriveDebtorName(forms: Record<string, FormData>): string {
   return joined;
 }
 
-export const useCaseStore = create<CaseStore>()(
-  persist(
-    (set, get) => ({
+export const useCaseStore = create<CaseStore>()((set, get) => ({
       cases: {},
       activeCaseId: null,
+      isLoaded: false,
+
+      loadCase: (record) =>
+        set((s) => ({
+          cases: { ...s.cases, [record.id]: record },
+        })),
+
+      setCases: (records) => {
+        const cases: Record<string, CaseRecord> = {};
+        for (const r of records) cases[r.id] = r;
+        set({ cases, isLoaded: true });
+      },
+
+      setLoaded: () => set({ isLoaded: true }),
 
       createCase: (chapter) => {
         const id = uid();
@@ -440,14 +456,7 @@ export const useCaseStore = create<CaseStore>()(
         }));
         return id;
       },
-    }),
-    {
-      name: "case-builder:v1",
-      storage: createJSONStorage(() => localStorage),
-      version: 1,
-    }
-  )
-);
+    }));
 
 export function getAutofillMark(
   c: CaseRecord | undefined,

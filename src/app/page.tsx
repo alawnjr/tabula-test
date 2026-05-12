@@ -2,32 +2,48 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { UserButton } from "@clerk/nextjs";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCaseStore } from "@/state/case-store";
 import { chapterLabel } from "@/lib/schemas";
 import { ImportExport } from "@/components/case/ImportExport";
+import { ConvexStoreSync } from "@/components/ConvexStoreSync";
 import { caseSummary } from "@/lib/derived";
 import { computeMeansTest } from "@/lib/meansTest";
 import { formatCurrency } from "@/lib/currency";
+import type { ChapterId } from "@/lib/schemas/types";
 import type { CaseRecord } from "@/state/case-store";
 
 export default function Home() {
-  const hydrated = useSyncExternalStore(
-    (cb) => useCaseStore.persist.onFinishHydration(cb),
-    () => useCaseStore.persist.hasHydrated(),
-    () => false
-  );
-
+  const isLoaded = useCaseStore((s) => s.isLoaded);
+  const loadCase = useCaseStore((s) => s.loadCase);
   const cases = useCaseStore((s) => s.cases);
-  const createCase = useCaseStore((s) => s.createCase);
   const router = useRouter();
+  const convexCreate = useMutation(api.cases.create);
 
-  const onNew = (chapter: "chapter7" | "chapter13" | "meansTest") => {
-    const id = createCase(chapter);
+  const onNew = async (chapter: ChapterId) => {
     const firstForm = chapter === "meansTest" ? "122A-1" : "101";
-    router.push(`/case/${id}/${firstForm}`);
+    const now = new Date().toISOString();
+    const forms: Record<string, Record<string, unknown>> =
+      chapter === "meansTest" ? {} : { "101": { chapterChoice: chapter } };
+    try {
+      const id = await convexCreate({
+        chapter,
+        debtorName: "",
+        createdAt: now,
+        updatedAt: now,
+        data: { forms },
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      loadCase({ id, chapter, debtorName: "", createdAt: now, updatedAt: now, forms: forms as any });
+      router.push(`/case/${id}/${firstForm}`);
+    } catch (err) {
+      console.error("Failed to create case:", err);
+      alert(`Could not create case: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   const list = Object.values(cases).sort((a, b) =>
@@ -36,6 +52,7 @@ export default function Home() {
 
   return (
     <>
+      <ConvexStoreSync />
       <header
         className="sticky top-0 z-30 border-b border-[var(--rule-soft)] bg-[var(--paper)]"
         style={{ height: "var(--case-header-h)" }}
@@ -44,10 +61,13 @@ export default function Home() {
           <Link href="/" className="logo">
             Case Builder<span className="logo-dot" />
           </Link>
-          <span className="pill">
-            <span className="dot pulse" />
-            Chapter 7 & 13
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="pill">
+              <span className="dot pulse" />
+              Chapter 7 & 13
+            </span>
+            <UserButton />
+          </div>
         </div>
       </header>
 
@@ -101,11 +121,11 @@ export default function Home() {
               </h2>
             </div>
             <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--mute)]">
-              {hydrated ? `${list.length} on file` : "Loading…"}
+              {isLoaded ? `${list.length} on file` : "Loading…"}
             </span>
           </div>
 
-          {!hydrated ? (
+          {!isLoaded ? (
             <p className="text-[12.5px] text-[var(--mute)]">Loading…</p>
           ) : list.length === 0 ? (
             <div className="rounded-[3px] border border-dashed border-[var(--rule)] bg-[var(--paper-2)] px-5 py-9 text-center">
