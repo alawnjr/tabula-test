@@ -1,5 +1,6 @@
 import { form101 } from "./form-101-petition";
 import { form107 } from "./form-107-sofa";
+import { form113 } from "./form-113-ch13plan";
 import { form122A1 } from "./form-122a1-cmi";
 import { form122A2 } from "./form-122a2-means";
 import { form122Result } from "./form-122result-eligibility";
@@ -26,6 +27,7 @@ export const SCHEMAS: Record<string, FormSchema> = {
   "106J": schedule106J,
   "106Sum": schedule106Sum,
   "107": form107,
+  "113": form113,
   "122A-1": form122A1,
   "122A-2": form122A2,
   "122Result": form122Result,
@@ -58,6 +60,7 @@ export const FORM_ORDER: Record<ChapterId, string[]> = {
     "106J",
     "106Sum",
     "107",
+    "113",
   ],
 };
 

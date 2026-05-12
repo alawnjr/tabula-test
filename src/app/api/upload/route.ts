@@ -15,37 +15,40 @@ function uid() {
 export async function POST(request: NextRequest) {
   const form = await request.formData();
   const file = form.get("file");
-  if (!(file instanceof File)) {
-    return Response.json({ error: "Missing file" }, { status: 400 });
+  if (!file || typeof file === "string") {
+    const keys = [...form.keys()];
+    return Response.json({ error: "Missing file", keys, type: typeof file }, { status: 400 });
   }
-  if (!ALLOWED.has(file.type)) {
+  const blob = file as Blob;
+  const filename = file instanceof File ? file.name : "upload";
+  if (!ALLOWED.has(blob.type)) {
     return Response.json(
-      { error: `Unsupported type: ${file.type || "unknown"}` },
+      { error: `Unsupported type: ${blob.type || "unknown"}` },
       { status: 415 }
     );
   }
-  if (file.size > MAX_BYTES) {
+  if (blob.size > MAX_BYTES) {
     return Response.json(
-      { error: `File too large (${file.size} bytes; max ${MAX_BYTES})` },
+      { error: `File too large (${blob.size} bytes; max ${MAX_BYTES})` },
       { status: 413 }
     );
   }
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  const bytes = new Uint8Array(await blob.arrayBuffer());
   const docId = uid();
   putDoc({
     id: docId,
-    filename: file.name,
-    mime: file.type,
-    size: file.size,
+    filename,
+    mime: blob.type,
+    size: blob.size,
     bytes,
     uploadedAt: new Date().toISOString(),
   });
 
   return Response.json({
     docId,
-    filename: file.name,
-    mime: file.type,
-    size: file.size,
+    filename,
+    mime: blob.type,
+    size: blob.size,
   });
 }

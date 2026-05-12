@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Trash2, X } from "lucide-react";
+import { Check, ExternalLink, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
+import type { Id } from "../../../../../convex/_generated/dataModel";
 import { useReviewStore } from "@/state/review-store";
 import { useCaseStore } from "@/state/case-store";
 import { FORM_ORDER, getSchema } from "@/lib/schemas";
+import { cn } from "@/lib/utils";
 import type {
   BankTransaction,
   ExtractedDoc,
@@ -49,9 +53,6 @@ function summarizeTransactions(txs: BankTransaction[]): {
   };
 }
 
-// What the editor returns when the user changes a value. We let users edit
-// strings, numbers, and booleans inline. The shape preserves the original
-// FormPatch op kind so applying just routes to the same store action.
 type PatchEditOp = FormPatch["op"];
 
 function coerceValue(prev: unknown, raw: string): unknown {
@@ -74,16 +75,39 @@ export default function ReviewPage({
   const { caseId } = use(params);
   const router = useRouter();
   const rawBundle = useReviewStore((s) => s.bundles[caseId]);
+  const addDoc = useReviewStore((s) => s.addDoc);
   const updatePatch = useReviewStore((s) => s.updatePatch);
   const removePatch = useReviewStore((s) => s.removePatch);
   const removeDocByLabel = useReviewStore((s) => s.removeDocByLabel);
   const clearBundle = useReviewStore((s) => s.clearBundle);
   const caseChapter = useCaseStore((s) => s.cases[caseId]?.chapter);
+  const debtorUploads = useQuery(api.cases.getDebtorUploads, { id: caseId as Id<"cases"> });
+  const clearDebtorUploads = useMutation(api.cases.clearDebtorUploads);
+  const markUploadReviewed = useMutation(api.cases.markUploadReviewed);
+  const updateUploadPatches = useMutation(api.cases.updateUploadPatches);
 
-  // Hide patches that target forms outside this case's chapter — e.g. a
-  // pay-stub upload in a means-test case generates 106I patches we shouldn't
-  // surface there. The same data does become relevant after branching to
-  // Chapter 7, since the new case copies forms over.
+  // Tracks uploads accepted this session so the sync effect doesn't re-add them
+  // during the window between removeDocByLabel and Convex processing markUploadReviewed.
+  const locallyReviewed = useRef<Set<string>>(new Set());
+
+  // Sync Convex uploads into the review store on initial load and when new uploads arrive.
+  // Skips: already-reviewed (Convex flag), locally-accepted (ref), already-in-store (no overwrite).
+  useEffect(() => {
+    if (!debtorUploads?.length) return;
+    const currentDocs = useReviewStore.getState().bundles[caseId]?.docs ?? [];
+    const existingLabels = new Set(currentDocs.map((d) => d.sourceLabel));
+    for (const upload of debtorUploads) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((upload as any).reviewed) continue;
+      if (locallyReviewed.current.has((upload as any).uploadedAt)) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const label = (upload as any).extractedDoc?.sourceLabel;
+      if (label && existingLabels.has(label)) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      addDoc(caseId, { doc: upload.extractedDoc as any, patches: upload.patches as any });
+    }
+  }, [debtorUploads, caseId, addDoc]);
+
   const bundle = useMemo(() => {
     if (!rawBundle || !caseChapter) return rawBundle;
     const allowed = new Set(FORM_ORDER[caseChapter] ?? []);
@@ -95,8 +119,9 @@ export default function ReviewPage({
     Object.fromEntries((bundle?.patches ?? []).map((p) => [p.id, true]))
   );
 
-  // Newly-arriving patches default to accepted=true; patches that have been
-  // removed from the bundle are dropped from the accepted map.
+  // Track which upload is being previewed (by uploadedAt key)
+  const [previewUploadedAt, setPreviewUploadedAt] = useState<string | null>(null);
+
   const allPatchIds = useMemo(
     () => bundle?.patches.map((p) => p.id) ?? [],
     [bundle]
@@ -122,6 +147,32 @@ export default function ReviewPage({
     });
   }, [allPatchIds]);
 
+  // Auto-open the first upload that has a stored file
+  useEffect(() => {
+    if (previewUploadedAt || !debtorUploads?.length) return;
+    const first = debtorUploads.find((u) => u.storageId);
+    if (first) setPreviewUploadedAt(first.uploadedAt);
+  }, [debtorUploads]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Source label for the currently previewed upload
+  const previewSourceLabel = useMemo(() => {
+    if (!previewUploadedAt || !debtorUploads?.length) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const u = debtorUploads.find((u: any) => u.uploadedAt === previewUploadedAt);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (u as any)?.extractedDoc?.sourceLabel ?? null;
+  }, [previewUploadedAt, debtorUploads]);
+
+  // When the previewed doc changes, check only that doc's patches
+  useEffect(() => {
+    if (!previewSourceLabel || !bundle?.patches.length) return;
+    setAccepted(
+      Object.fromEntries(bundle.patches.map((p) => [p.id, p.sourceLabel === previewSourceLabel]))
+    );
+    // Intentionally omit bundle — only re-run when the selected doc changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewSourceLabel]);
+
   const groupedByForm = useMemo(() => {
     const out: Record<string, FormPatch[]> = {};
     if (!bundle) return out;
@@ -131,7 +182,6 @@ export default function ReviewPage({
     return out;
   }, [bundle]);
 
-  // Aggregate transactions across every doc that brought any.
   const transactions = useMemo(() => {
     if (!bundle) return [] as BankTransaction[];
     const all: BankTransaction[] = [];
@@ -204,12 +254,118 @@ export default function ReviewPage({
   };
 
   const onApply = () => {
+    const acceptedList = bundle.patches.filter((p) => accepted[p.id]);
+    if (acceptedList.length === 0) return;
+
+    for (const p of acceptedList) applyPatch(p);
+
+    const remainingPatches = bundle.patches.filter((p) => !accepted[p.id]);
+
+    if (remainingPatches.length === 0) {
+      for (const doc of bundle.docs) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const up = debtorUploads?.find((u: any) => u.extractedDoc?.sourceLabel === doc.sourceLabel) as any;
+        if (up?.uploadedAt) {
+          locallyReviewed.current.add(up.uploadedAt);
+          void markUploadReviewed({ id: caseId as Id<"cases">, uploadedAt: up.uploadedAt });
+        }
+      }
+      clearBundle(caseId);
+      router.push(`/case/${caseId}`);
+      return;
+    }
+
+    const remainingLabelSet = new Set(remainingPatches.map((p) => p.sourceLabel));
+
+    // Docs whose patches were all accepted: mark reviewed
+    for (const doc of bundle.docs) {
+      if (!remainingLabelSet.has(doc.sourceLabel)) {
+        removeDocByLabel(caseId, doc.sourceLabel);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const up = debtorUploads?.find((u: any) => u.extractedDoc?.sourceLabel === doc.sourceLabel) as any;
+        if (up?.uploadedAt) {
+          locallyReviewed.current.add(up.uploadedAt);
+          void markUploadReviewed({ id: caseId as Id<"cases">, uploadedAt: up.uploadedAt });
+        }
+      }
+    }
+
+    // Partially accepted docs: remove accepted patches from local store and
+    // update the Convex record so the queue restores correctly on reload.
+    const partialLabelPatches: Record<string, typeof remainingPatches> = {};
+    for (const p of acceptedList) {
+      if (remainingLabelSet.has(p.sourceLabel)) removePatch(caseId, p.id);
+    }
+    for (const label of remainingLabelSet) {
+      partialLabelPatches[label] = remainingPatches.filter(p => p.sourceLabel === label);
+    }
+    for (const [label, leftover] of Object.entries(partialLabelPatches)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const up = debtorUploads?.find((u: any) => u.extractedDoc?.sourceLabel === label);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((up as any)?.uploadedAt) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        void updateUploadPatches({ id: caseId as Id<"cases">, uploadedAt: (up as any).uploadedAt, patches: leftover });
+      }
+    }
+
+    // Advance preview to next doc that has a viewable file
+    if (previewSourceLabel && !remainingLabelSet.has(previewSourceLabel)) {
+      let nextUploadedAt: string | null = null;
+      for (const doc of bundle.docs) {
+        if (!remainingLabelSet.has(doc.sourceLabel)) continue;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const up = debtorUploads?.find((u: any) => u.extractedDoc?.sourceLabel === doc.sourceLabel && u.storageId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((up as any)?.uploadedAt) { nextUploadedAt = (up as any).uploadedAt; break; }
+      }
+      setPreviewUploadedAt(nextUploadedAt);
+    }
+
+    // Default all remaining patches to accepted=true for next pass
+    setAccepted(Object.fromEntries(remainingPatches.map((p) => [p.id, true])));
+  };
+
+  const onAcceptAll = () => {
     for (const p of bundle.patches) {
-      if (!accepted[p.id]) continue;
       applyPatch(p);
+    }
+    for (const doc of bundle.docs) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const up = debtorUploads?.find((u: any) => u.extractedDoc?.sourceLabel === doc.sourceLabel) as any;
+      if (up?.uploadedAt) {
+        locallyReviewed.current.add(up.uploadedAt);
+        void markUploadReviewed({ id: caseId as Id<"cases">, uploadedAt: up.uploadedAt });
+      }
     }
     clearBundle(caseId);
     router.push(`/case/${caseId}`);
+  };
+
+  const onAcceptCurrentDoc = () => {
+    if (!previewUploadedAt || !previewSourceLabel) return;
+    for (const p of bundle.patches) {
+      if (p.sourceLabel === previewSourceLabel) applyPatch(p);
+    }
+    removeDocByLabel(caseId, previewSourceLabel);
+    locallyReviewed.current.add(previewUploadedAt);
+    void markUploadReviewed({ id: caseId as Id<"cases">, uploadedAt: previewUploadedAt });
+    // Advance to the next doc that has a viewable file, or navigate away
+    const remaining = bundle.docs.filter((d) => d.sourceLabel !== previewSourceLabel);
+    let nextUploadedAt: string | null = null;
+    for (const doc of remaining) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const up = debtorUploads?.find((u: any) => u.extractedDoc?.sourceLabel === doc.sourceLabel && u.storageId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((up as any)?.uploadedAt) { nextUploadedAt = (up as any).uploadedAt; break; }
+    }
+    if (nextUploadedAt) {
+      setPreviewUploadedAt(nextUploadedAt);
+    } else if (remaining.length > 0) {
+      setPreviewUploadedAt(null); // remaining docs have no viewable file
+    } else {
+      router.push(`/case/${caseId}`);
+    }
   };
 
   const onDiscardAll = () => {
@@ -220,6 +376,7 @@ export default function ReviewPage({
     )
       return;
     clearBundle(caseId);
+    void clearDebtorUploads({ id: caseId as Id<"cases"> });
     router.push(`/case/${caseId}`);
   };
 
@@ -251,7 +408,9 @@ export default function ReviewPage({
     updatePatch(caseId, p.id, op);
   };
 
-  return (
+  const hasPreview = Boolean(previewUploadedAt);
+
+  const reviewContent = (
     <div className="mx-auto max-w-3xl px-4 py-6 lg:px-8 lg:py-8 space-y-6">
       <header className="space-y-2">
         <span className="tag">Review queue</span>
@@ -270,6 +429,9 @@ export default function ReviewPage({
       <SourcesPanel
         docs={bundle.docs}
         patches={bundle.patches}
+        debtorUploads={debtorUploads ?? []}
+        previewUploadedAt={previewUploadedAt}
+        onPreview={setPreviewUploadedAt}
         onRemove={(label) => {
           if (!confirm(`Remove ${label} and its proposed entries?`)) return;
           removeDocByLabel(caseId, label);
@@ -289,8 +451,11 @@ export default function ReviewPage({
           <Button variant="ghost" onClick={onDiscardAll}>
             <X className="h-3 w-3" /> Discard all
           </Button>
+          <Button variant="outline" onClick={onAcceptAll}>
+            <Check className="h-3 w-3" /> Accept all
+          </Button>
           <Button onClick={onApply} disabled={acceptedCount === 0}>
-            <Check className="h-3 w-3" /> Apply {acceptedCount} to forms
+            <Check className="h-3 w-3" /> Apply {acceptedCount} selected
           </Button>
         </div>
       </div>
@@ -316,22 +481,10 @@ export default function ReviewPage({
               (122A-1) and Schedules I/J — not auto-applied.
             </p>
             <div className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-4">
-              <Stat
-                label="Total inflow"
-                value={formatCurrency(txSummary.inflow)}
-              />
-              <Stat
-                label="Total outflow"
-                value={formatCurrency(txSummary.outflow)}
-              />
-              <Stat
-                label={`Avg in (${txSummary.monthCount}mo)`}
-                value={formatCurrency(txSummary.monthlyAvgIn)}
-              />
-              <Stat
-                label="Avg out"
-                value={formatCurrency(txSummary.monthlyAvgOut)}
-              />
+              <Stat label="Total inflow" value={formatCurrency(txSummary.inflow)} />
+              <Stat label="Total outflow" value={formatCurrency(txSummary.outflow)} />
+              <Stat label={`Avg in (${txSummary.monthCount}mo)`} value={formatCurrency(txSummary.monthlyAvgIn)} />
+              <Stat label="Avg out" value={formatCurrency(txSummary.monthlyAvgOut)} />
             </div>
             {recentTransactions.length ? (
               <div>
@@ -373,8 +526,7 @@ export default function ReviewPage({
                 </ul>
                 {transactions.length > recentTransactions.length ? (
                   <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
-                    + {transactions.length - recentTransactions.length} more in
-                    pull
+                    + {transactions.length - recentTransactions.length} more in pull
                   </p>
                 ) : null}
               </div>
@@ -429,6 +581,110 @@ export default function ReviewPage({
           </section>
         );
       })}
+    </div>
+  );
+
+  return (
+    <div
+      className={cn(
+        "flex",
+        hasPreview && "h-[calc(100vh-var(--case-header-h))] overflow-hidden"
+      )}
+    >
+      <div className={cn(hasPreview && "flex-1 min-w-0 overflow-y-auto")}>
+        {reviewContent}
+      </div>
+
+      {hasPreview && previewUploadedAt && (
+        <div className="w-[48%] shrink-0 border-l border-[var(--rule)] overflow-hidden flex flex-col">
+          <DocViewer
+            caseId={caseId}
+            uploadedAt={previewUploadedAt}
+            onClose={() => setPreviewUploadedAt(null)}
+            onAcceptDoc={onAcceptCurrentDoc}
+            docPatchCount={
+              previewSourceLabel
+                ? bundle.patches.filter((p) => p.sourceLabel === previewSourceLabel).length
+                : 0
+            }
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DocViewer({
+  caseId,
+  uploadedAt,
+  onClose,
+  onAcceptDoc,
+  docPatchCount,
+}: {
+  caseId: string;
+  uploadedAt: string;
+  onClose: () => void;
+  onAcceptDoc: () => void;
+  docPatchCount: number;
+}) {
+  const url = useQuery(api.cases.getUploadFileUrl, {
+    id: caseId as Id<"cases">,
+    uploadedAt,
+  });
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--rule-soft)] px-3 py-2">
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+          Source document
+        </span>
+        <div className="flex items-center gap-1">
+          <Button size="sm" onClick={onAcceptDoc} disabled={docPatchCount === 0}>
+            <Check className="h-3 w-3" />
+            Accept this doc ({docPatchCount})
+          </Button>
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded px-2 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)] hover:bg-[var(--paper-2)] hover:text-[var(--ink)]"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Open
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded px-2 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)] hover:bg-[var(--paper-2)] hover:text-[var(--ink)]"
+          >
+            ✕ Close
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-hidden bg-[var(--paper-3)]">
+        {url === undefined ? (
+          <div className="flex h-full items-center justify-center">
+            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)]">
+              Loading…
+            </span>
+          </div>
+        ) : url === null ? (
+          <div className="flex h-full items-center justify-center">
+            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)]">
+              File not available
+            </span>
+          </div>
+        ) : (
+          <iframe
+            src={url}
+            className="h-full w-full border-0"
+            title="Source document"
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -564,10 +820,17 @@ function GroupEditor({
 function SourcesPanel({
   docs,
   patches,
+  debtorUploads,
+  previewUploadedAt,
+  onPreview,
   onRemove,
 }: {
   docs: ExtractedDoc[];
   patches: FormPatch[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  debtorUploads: any[];
+  previewUploadedAt: string | null;
+  onPreview: (uploadedAt: string | null) => void;
   onRemove: (sourceLabel: string) => void;
 }) {
   const counts = useMemo(() => {
@@ -578,6 +841,17 @@ function SourcesPanel({
     return out;
   }, [patches]);
 
+  // Map sourceLabel → uploadedAt for docs that have a stored file
+  const labelToUploadedAt = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const u of debtorUploads) {
+      if (u.storageId && u.extractedDoc?.sourceLabel) {
+        out[u.extractedDoc.sourceLabel] = u.uploadedAt;
+      }
+    }
+    return out;
+  }, [debtorUploads]);
+
   return (
     <section className="rounded-[3px] border border-[var(--rule)] bg-[var(--paper-2)]">
       <header className="flex items-center justify-between border-b border-[var(--rule-soft)] px-4 py-2.5">
@@ -586,46 +860,72 @@ function SourcesPanel({
         </span>
         <Badge variant="outline">{docs.length}</Badge>
       </header>
-      <ul className="divide-y divide-[var(--rule-soft)] px-4">
-        {docs.map((d) => (
-          <li
-            key={d.sourceLabel + d.extractedAt}
-            className="flex items-baseline justify-between gap-3 py-2"
-          >
-            <span className="min-w-0 flex-1">
-              <span
-                className="block truncate text-[13px] tracking-[-0.005em] text-[var(--ink)]"
-                style={{ fontFamily: "var(--serif)" }}
+      <ul className="divide-y divide-[var(--rule-soft)]">
+        {docs.map((d) => {
+          const uploadedAt = labelToUploadedAt[d.sourceLabel];
+          const isPreviewing = uploadedAt != null && previewUploadedAt === uploadedAt;
+          return (
+            <li
+              key={d.sourceLabel + d.extractedAt}
+              className={cn(
+                "flex items-start justify-between gap-3 py-2 px-4 transition-colors",
+                isPreviewing && "bg-[var(--paper-3)]"
+              )}
+            >
+              <button
+                type="button"
+                disabled={!uploadedAt}
+                onClick={() => uploadedAt && onPreview(uploadedAt)}
+                className="min-w-0 flex-1 text-left disabled:cursor-default"
               >
-                {d.sourceLabel}
-              </span>
-              <span className="block font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)]">
-                {d.source} ·{" "}
-                {new Date(d.extractedAt).toLocaleString(undefined, {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}{" "}
-                · {counts[d.sourceLabel] ?? 0} entries
-              </span>
-              {d.rawSummary ? (
                 <span
-                  className="mt-1 block max-w-[60ch] text-[12px] italic text-[var(--ink-2)]"
+                  className={cn(
+                    "block truncate text-[13px] tracking-[-0.005em]",
+                    isPreviewing ? "text-[var(--ink)]" : "text-[var(--ink)] hover:text-[var(--accent-deep)]"
+                  )}
                   style={{ fontFamily: "var(--serif)" }}
                 >
-                  {d.rawSummary}
+                  {d.sourceLabel}
                 </span>
-              ) : null}
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onRemove(d.sourceLabel)}
-              aria-label={`Remove ${d.sourceLabel}`}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          </li>
-        ))}
+                <span className="block font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)]">
+                  {d.source} ·{" "}
+                  {new Date(d.extractedAt).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}{" "}
+                  · {counts[d.sourceLabel] ?? 0} entries
+                </span>
+                {d.rawSummary ? (
+                  <span
+                    className="mt-1 block max-w-[60ch] text-[12px] italic text-[var(--ink-2)]"
+                    style={{ fontFamily: "var(--serif)" }}
+                  >
+                    {d.rawSummary}
+                  </span>
+                ) : null}
+              </button>
+              <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                {uploadedAt && isPreviewing && (
+                  <button
+                    type="button"
+                    onClick={() => onPreview(null)}
+                    className="rounded px-2 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--mute)] hover:bg-[var(--paper-2)] hover:text-[var(--ink)]"
+                  >
+                    Hide
+                  </button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onRemove(d.sourceLabel)}
+                  aria-label={`Remove ${d.sourceLabel}`}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

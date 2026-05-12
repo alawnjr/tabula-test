@@ -10,9 +10,13 @@ import {
   Sparkles,
   UploadCloud,
 } from "lucide-react";
+import { useAction, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { useReviewStore } from "@/state/review-store";
 import { useCaseStore } from "@/state/case-store";
+import { buildPatches } from "@/lib/integrations/mapping";
 import type { ExtractedDoc, FormPatch } from "@/lib/integrations/types";
 import { cn } from "@/lib/utils";
 
@@ -89,6 +93,9 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
   const dragCount = useRef(0);
   const addDoc = useReviewStore((s) => s.addDoc);
   const setBankData = useCaseStore((s) => s.setBankData);
+  const generateUploadUrl = useMutation(api.cases.generateUploadUrl);
+  const extractFromStorage = useAction(api.extract.extractFromStorage);
+  const submitUpload = useMutation(api.cases.submitDebtorUpload);
   const [status, setStatus] = useState<Status>("idle");
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -139,43 +146,37 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
         });
         setStatus("uploading");
 
-        const fd = new FormData();
-        fd.append("file", file);
-        const upRes = await fetch("/api/upload", { method: "POST", body: fd });
-        if (!upRes.ok) {
-          const j = await upRes.json().catch(() => ({}));
-          throw new Error(
-            j.error ?? `Upload failed for ${file.name} (${upRes.status})`
-          );
-        }
-        const { docId } = (await upRes.json()) as { docId: string };
-
-        setProgress({
-          index: i + 1,
-          total: filtered.length,
-          filename: file.name,
-          phase: "extracting",
+        // Upload to Convex storage
+        const uploadUrl = await generateUploadUrl();
+        const storeRes = await fetch(uploadUrl, {
+          method: "POST",
+          body: file,
+          headers: { "Content-Type": file.type },
         });
+        if (!storeRes.ok) throw new Error(`Storage upload failed for ${file.name}`);
+        const { storageId } = (await storeRes.json()) as { storageId: Id<"_storage"> };
+
+        setProgress({ index: i + 1, total: filtered.length, filename: file.name, phase: "extracting" });
         setStatus("extracting");
 
-        const exRes = await fetch("/api/extract", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ docId }),
+        // Extract via Convex action (no Vercel timeout)
+        const extracted = (await extractFromStorage({
+          storageId,
+          filename: file.name,
+          mimeType: file.type,
+        })) as ExtractedDoc;
+
+        const patches = buildPatches(extracted);
+        addDoc(caseId, { doc: extracted, patches });
+        await submitUpload({
+          id: caseId as Id<"cases">,
+          extractedDoc: extracted,
+          patches,
+          uploadedAt: extracted.extractedAt,
+          storageId,
         });
-        if (!exRes.ok) {
-          const j = await exRes.json().catch(() => ({}));
-          throw new Error(
-            j.error ?? `Extraction failed for ${file.name} (${exRes.status})`
-          );
-        }
-        const data = (await exRes.json()) as {
-          extracted: ExtractedDoc;
-          patches: FormPatch[];
-        };
-        addDoc(caseId, { doc: data.extracted, patches: data.patches });
         added += 1;
-        entriesQueued += data.patches.length;
+        entriesQueued += patches.length;
       }
       setStatus("idle");
       setProgress(null);

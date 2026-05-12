@@ -13,5 +13,8 @@ export default defineSchema({
     createdAt: v.string(),
     updatedAt: v.string(),
     data: v.any(),
-  }).index("by_user", ["userId"]),
+    debtorEmail: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_debtor_email", ["debtorEmail"]),
 });

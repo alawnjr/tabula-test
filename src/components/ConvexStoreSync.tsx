@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -28,12 +29,19 @@ function convexDocToRecord(doc: {
 }
 
 export function ConvexStoreSync() {
+  const { isLoaded: clerkLoaded } = useUser();
   const setCases = useCaseStore((s) => s.setCases);
   const setLoaded = useCaseStore((s) => s.setLoaded);
   const cases = useCaseStore((s) => s.cases);
   const updateCase = useMutation(api.cases.update);
 
-  const convexCases = useQuery(api.cases.listByUser);
+  // Skip the query until Clerk has resolved its session — otherwise Convex
+  // runs unauthenticated first (returning []), the hydration ref flips, and
+  // the real cases that arrive after auth are silently dropped.
+  const convexCases = useQuery(
+    api.cases.listByUser,
+    clerkLoaded ? {} : "skip"
+  );
 
   // Initial hydration: load all Convex cases into Zustand
   const hydrated = useRef(false);

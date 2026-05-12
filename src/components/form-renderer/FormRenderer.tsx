@@ -9,7 +9,9 @@ import {
 import { useCaseStore } from "@/state/case-store";
 import { cn } from "@/lib/utils";
 import { SectionRenderer } from "./SectionRenderer";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
+// FormTopBar is sticky at --case-header-h. The sidebar must stick below it.
+const FORM_TOPBAR_H = "3.25rem";
 
 export function FormRenderer({
   formId,
@@ -22,9 +24,6 @@ export function FormRenderer({
   const initial = schema?.sections[0]?.id ?? "";
   const [active, setActive] = useState(initial);
 
-  // Subscribe to this form's data so per-section indicators update as the
-  // user types. We deliberately scope to a single form to keep re-renders
-  // tight.
   const formData = useCaseStore((s) => {
     const id = s.activeCaseId;
     if (!id) return undefined;
@@ -40,7 +39,6 @@ export function FormRenderer({
     return out;
   }, [schema, formData]);
 
-  // Reset to first section + scroll to top when navigating between forms.
   useEffect(() => {
     setActive(schema?.sections[0]?.id ?? "");
     if (typeof window !== "undefined") {
@@ -48,7 +46,6 @@ export function FormRenderer({
     }
   }, [formId, schema]);
 
-  // Scroll to top when the active section changes too.
   useEffect(() => {
     if (typeof window !== "undefined" && active) {
       window.scrollTo({ top: 0, behavior: "auto" });
@@ -66,167 +63,159 @@ export function FormRenderer({
   }
 
   const sections = schema.sections;
-  const single = sections.length <= 1;
+  const multi = sections.length > 1;
   const activeIdx = Math.max(
     0,
     sections.findIndex((s) => s.id === active)
   );
-
-  if (single) {
-    const only = sections[0];
-    return (
-      <div>
-        <FormTopBar schema={schema} />
-        <div className="mx-auto max-w-3xl px-4 pt-10 pb-14 lg:px-8 lg:pt-12 space-y-6">
-          {only ? (
-            <>
-              <header className="space-y-1.5">
-                <h2
-                  className="text-[22px] leading-[1.15] tracking-[-0.02em] text-[var(--ink)]"
-                  style={{ fontFamily: "var(--serif)" }}
-                >
-                  {only.title}
-                </h2>
-                {only.description ? (
-                  <p className="max-w-[68ch] text-[13px] leading-[1.55] text-[var(--ink-2)]">
-                    {only.description}
-                  </p>
-                ) : null}
-              </header>
-              <SectionRenderer section={only} formId={schema.id} unwrapped />
-            </>
-          ) : null}
-          {footer ? (
-            <div className="mt-8 border-t border-[var(--rule)] pt-4">
-              {footer}
-            </div>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
+  const activeSection = sections[activeIdx];
 
   return (
-    <Tabs value={active} onValueChange={setActive}>
-      {/* Sticky full-width form bar: title row + tab list */}
-      <div
-        className="sticky z-20 border-b border-[var(--rule)] bg-[var(--paper)]"
-        style={{ top: "var(--case-header-h)" }}
-      >
-        <div className="flex items-center justify-between gap-4 px-4 pt-3 pb-2 lg:px-8">
-          <div className="flex items-baseline gap-3 min-w-0">
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)] shrink-0">
-              Form {schema.id}
-            </span>
-            <h1
-              className="text-[18px] tracking-[-0.015em] text-[var(--ink)] truncate"
-              style={{ fontFamily: "var(--serif)" }}
-            >
-              {schema.title}
-            </h1>
+    <div style={{ "--form-topbar-h": FORM_TOPBAR_H } as React.CSSProperties}>
+      <FormTopBar schema={schema} sectionCount={sections.length} activeIdx={activeIdx} />
+
+      <div className="flex">
+        {/* Section nav sidebar — always rendered so section 01 is always reachable */}
+        <nav
+          className="hidden w-56 shrink-0 lg:block"
+          style={{
+            position: "sticky",
+            top: "calc(var(--case-header-h) + var(--form-topbar-h))",
+            alignSelf: "flex-start",
+            maxHeight: "calc(100vh - var(--case-header-h) - var(--form-topbar-h))",
+            overflowY: "auto",
+          }}
+        >
+          <ul className="space-y-0.5 py-6 pl-4 pr-2">
+            {sections.map((s, i) => {
+              const isActive = s.id === active;
+              const comp = sectionCompletion[s.id];
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => setActive(s.id)}
+                    className={cn(
+                      "flex w-full items-start gap-2 rounded-[3px] px-2 py-1.5 text-left transition-colors",
+                      isActive
+                        ? "bg-[var(--paper-3)] text-[var(--ink)]"
+                        : "text-[var(--ink-2)] hover:bg-[var(--paper-2)] hover:text-[var(--ink)]"
+                    )}
+                  >
+                    <span className="mt-px shrink-0 font-mono text-[8.5px] tracking-[0.1em] text-[var(--mute)]">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span
+                        className="block text-[12px] leading-snug tracking-[-0.01em]"
+                        style={{ fontFamily: "var(--serif)" }}
+                      >
+                        {s.title}
+                      </span>
+                    </span>
+                    <span className="mt-1 shrink-0">
+                      <SectionDot completion={comp} />
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        {/* Section content */}
+        <div className="flex-1 min-w-0">
+          <div className="mx-auto max-w-3xl px-4 pt-14 pb-14 lg:px-8 lg:pt-16 space-y-6">
+            {activeSection ? (
+              <>
+                <header className="space-y-1.5">
+                  {multi ? (
+                    <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)] flex items-center gap-2">
+                      <span>
+                        Section {String(activeIdx + 1).padStart(2, "0")} of{" "}
+                        {String(sections.length).padStart(2, "0")}
+                      </span>
+                      <SectionEyebrowStatus
+                        completion={sectionCompletion[activeSection.id]}
+                      />
+                    </span>
+                  ) : null}
+                  <h2
+                    className="text-[22px] leading-[1.15] tracking-[-0.02em] text-[var(--ink)]"
+                    style={{ fontFamily: "var(--serif)" }}
+                  >
+                    {activeSection.title}
+                  </h2>
+                  {activeSection.description ? (
+                    <p className="max-w-[68ch] text-[13px] leading-[1.55] text-[var(--ink-2)]">
+                      {activeSection.description}
+                    </p>
+                  ) : null}
+                </header>
+
+                <SectionRenderer section={activeSection} formId={schema.id} unwrapped />
+
+                {multi ? (
+                  <div className="flex items-center justify-between border-t border-[var(--rule-soft)] pt-4">
+                    <button
+                      type="button"
+                      onClick={
+                        activeIdx > 0
+                          ? () => setActive(sections[activeIdx - 1].id)
+                          : undefined
+                      }
+                      disabled={activeIdx === 0}
+                      className="group inline-flex items-center gap-2 text-[11px] tracking-[-0.01em] text-[var(--mute)] transition-colors hover:text-[var(--ink)] disabled:invisible"
+                    >
+                      <span className="font-mono uppercase tracking-[0.12em]">
+                        ← Prev
+                      </span>
+                      <span style={{ fontFamily: "var(--serif)" }}>
+                        {sections[activeIdx - 1]?.title}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={
+                        activeIdx < sections.length - 1
+                          ? () => setActive(sections[activeIdx + 1].id)
+                          : undefined
+                      }
+                      disabled={activeIdx === sections.length - 1}
+                      className="group inline-flex items-center gap-2 text-[11px] tracking-[-0.01em] text-[var(--ink-2)] transition-colors hover:text-[var(--ink)] disabled:invisible"
+                    >
+                      <span style={{ fontFamily: "var(--serif)" }}>
+                        {sections[activeIdx + 1]?.title}
+                      </span>
+                      <span className="font-mono uppercase tracking-[0.12em]">
+                        Next →
+                      </span>
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+
+            {footer ? (
+              <div className="mt-6 border-t border-[var(--rule)] pt-4">
+                {footer}
+              </div>
+            ) : null}
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)] tabular-nums shrink-0">
-            {String(activeIdx + 1).padStart(2, "0")} /{" "}
-            {String(sections.length).padStart(2, "0")}
-          </span>
         </div>
-
-        <TabsList className="px-2 lg:px-6">
-          {sections.map((s, i) => (
-            <TabsTrigger
-              key={s.id}
-              value={s.id}
-              index={i}
-              indicator={
-                <SectionDot completion={sectionCompletion[s.id]} />
-              }
-            >
-              {s.title}
-            </TabsTrigger>
-          ))}
-        </TabsList>
       </div>
-
-      {/* Constrained content */}
-      <div className="mx-auto max-w-3xl px-4 pt-10 pb-14 lg:px-8 lg:pt-12">
-        {sections.map((s, i) => (
-          <TabsContent key={s.id} value={s.id} className="space-y-6">
-            <header className="space-y-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)] flex items-center gap-2">
-                <span>
-                  Section {String(i + 1).padStart(2, "0")} of{" "}
-                  {String(sections.length).padStart(2, "0")}
-                </span>
-                <SectionEyebrowStatus
-                  completion={sectionCompletion[s.id]}
-                />
-              </span>
-              <h2
-                className="text-[22px] leading-[1.15] tracking-[-0.02em] text-[var(--ink)]"
-                style={{ fontFamily: "var(--serif)" }}
-              >
-                {s.title}
-              </h2>
-              {s.description ? (
-                <p className="max-w-[68ch] text-[13px] leading-[1.55] text-[var(--ink-2)]">
-                  {s.description}
-                </p>
-              ) : null}
-            </header>
-
-            <SectionRenderer section={s} formId={schema.id} unwrapped />
-
-            <div className="flex items-center justify-between border-t border-[var(--rule-soft)] pt-4">
-              <button
-                type="button"
-                onClick={
-                  i > 0 ? () => setActive(sections[i - 1].id) : undefined
-                }
-                disabled={i === 0}
-                className="group inline-flex items-center gap-2 text-[11px] tracking-[-0.01em] text-[var(--mute)] transition-colors hover:text-[var(--ink)] disabled:invisible"
-              >
-                <span className="font-mono uppercase tracking-[0.12em]">
-                  ← Prev
-                </span>
-                <span style={{ fontFamily: "var(--serif)" }}>
-                  {sections[i - 1]?.title}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={
-                  i < sections.length - 1
-                    ? () => setActive(sections[i + 1].id)
-                    : undefined
-                }
-                disabled={i === sections.length - 1}
-                className="group inline-flex items-center gap-2 text-[11px] tracking-[-0.01em] text-[var(--ink-2)] transition-colors hover:text-[var(--ink)] disabled:invisible"
-              >
-                <span style={{ fontFamily: "var(--serif)" }}>
-                  {sections[i + 1]?.title}
-                </span>
-                <span className="font-mono uppercase tracking-[0.12em]">
-                  Next →
-                </span>
-              </button>
-            </div>
-          </TabsContent>
-        ))}
-
-        {footer ? (
-          <div className="mt-6 border-t border-[var(--rule)] pt-4">
-            {footer}
-          </div>
-        ) : null}
-      </div>
-    </Tabs>
+    </div>
   );
 }
 
 function FormTopBar({
   schema,
+  sectionCount,
+  activeIdx,
 }: {
   schema: { id: string; title: string; longTitle?: string };
+  sectionCount?: number;
+  activeIdx?: number;
 }) {
   return (
     <div
@@ -245,6 +234,12 @@ function FormTopBar({
             {schema.title}
           </h1>
         </div>
+        {sectionCount != null && sectionCount > 1 && activeIdx != null ? (
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)] tabular-nums shrink-0">
+            {String(activeIdx + 1).padStart(2, "0")} /{" "}
+            {String(sectionCount).padStart(2, "0")}
+          </span>
+        ) : null}
       </div>
     </div>
   );
