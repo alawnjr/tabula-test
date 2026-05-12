@@ -27,6 +27,7 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
   const reviewHref = `/case/${caseId}/review`;
   const printHref = `/case/${caseId}/print`;
   const filesHref = `/case/${caseId}/files`;
+  const assistantHref = `/case/${caseId}/assistant`;
 
   const meansTestIds = ["122A-1", "122A-2", "122Result"];
   // Only show the linked means-test section for bankruptcy chapters (not PI/RE)
@@ -90,6 +91,11 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
           href={filesHref}
           label="Files"
           active={pathname === filesHref}
+        />
+        <SidebarLink
+          href={assistantHref}
+          label="Virtual Assistant"
+          active={pathname === assistantHref}
         />
       </div>
 

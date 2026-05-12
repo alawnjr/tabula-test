@@ -13,7 +13,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         <div className="mx-auto flex h-full max-w-4xl items-center justify-between px-5">
           <div className="flex items-center gap-3">
             <Link href="/portal" className="logo">
-              Case Builder<span className="logo-dot" />
+              Tabula<span className="logo-dot" />
             </Link>
             <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--mute)]">
               / Client Portal

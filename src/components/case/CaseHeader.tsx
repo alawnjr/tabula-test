@@ -59,7 +59,7 @@ export function CaseHeader({ caseId }: { caseId: string }) {
       <div className="flex h-full items-center justify-between px-4">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" className="logo shrink-0">
-            Case Builder
+            Tabula
             <span className="logo-dot" />
           </Link>
 

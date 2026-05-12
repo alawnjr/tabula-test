@@ -9,6 +9,7 @@ import { useCaseStore } from "@/state/case-store";
 import { ConvexStoreSync } from "@/components/ConvexStoreSync";
 import { CaseHeader } from "@/components/case/CaseHeader";
 import { CaseSidebar } from "@/components/case/CaseSidebar";
+import { ChatPopup } from "@/components/chat/ChatPopup";
 
 export default function CaseLayout({
   children,
@@ -82,6 +83,7 @@ export default function CaseLayout({
         </aside>
         <main className="flex-1 overflow-x-hidden">{children}</main>
       </div>
+      <ChatPopup caseId={caseId} />
     </div>
   );
 }

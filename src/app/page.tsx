@@ -39,7 +39,7 @@ export default function LandingPage() {
       >
         <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-5">
           <Link href="/" className="logo">
-            Case Builder<span className="logo-dot" />
+            Tabula<span className="logo-dot" />
           </Link>
           <span className="pill">
             <span className="dot pulse" />
@@ -60,7 +60,7 @@ export default function LandingPage() {
             <em>all in one place.</em>
           </h1>
           <p className="max-w-[52ch] text-[15px] font-light leading-relaxed text-[var(--ink-2)]">
-            Case Builder covers bankruptcy, personal injury, and real estate. Choose your practice area to get started.
+            Tabula covers bankruptcy, personal injury, and real estate. Choose your practice area to get started.
           </p>
         </section>
 

@@ -22,9 +22,9 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Case Builder — Chapter 7 & 13 Bankruptcy",
+  title: "Tabula — Legal Case Builder",
   description:
-    "Build a Chapter 7 or Chapter 13 bankruptcy case schedule by schedule.",
+    "Tabula is a legal case-builder for bankruptcy, personal injury, and real estate practices.",
 };
 
 export default function RootLayout({
