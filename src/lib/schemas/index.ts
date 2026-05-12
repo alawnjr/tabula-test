@@ -13,15 +13,21 @@ import { schedule106H } from "./schedule-106h-codebtors";
 import { schedule106I } from "./schedule-106i-income";
 import { schedule106J } from "./schedule-106j-expenses";
 import { schedule106Sum } from "./schedule-106sum-summary";
+import { piRetainerNy } from "./pi-retainer-ny";
 import { piIntake } from "./pi-intake";
 import { piMedical } from "./pi-medical";
+import { piExperts } from "./pi-experts";
 import { piDamages } from "./pi-damages";
 import { piInsurance } from "./pi-insurance";
+import { piNoFaultNy } from "./pi-no-fault-ny";
 import { piClaim } from "./pi-claim";
 import { reParties } from "./re-parties";
 import { reProperty } from "./re-property";
+import { reContractNy } from "./re-contract-ny";
 import { reTransaction } from "./re-transaction";
 import { reFinancing } from "./re-financing";
+import { reTaxesNy } from "./re-taxes-ny";
+import { reDueDiligence } from "./re-due-diligence";
 import { reClosing } from "./re-closing";
 import type { ChapterId, FormSchema } from "./types";
 
@@ -41,15 +47,21 @@ export const SCHEMAS: Record<string, FormSchema> = {
   "122A-1": form122A1,
   "122A-2": form122A2,
   "122Result": form122Result,
+  "pi-retainer-ny": piRetainerNy,
   "pi-intake": piIntake,
   "pi-medical": piMedical,
+  "pi-experts": piExperts,
   "pi-damages": piDamages,
   "pi-insurance": piInsurance,
+  "pi-no-fault-ny": piNoFaultNy,
   "pi-claim": piClaim,
   "re-parties": reParties,
   "re-property": reProperty,
+  "re-contract-ny": reContractNy,
   "re-transaction": reTransaction,
   "re-financing": reFinancing,
+  "re-taxes-ny": reTaxesNy,
+  "re-due-diligence": reDueDiligence,
   "re-closing": reClosing,
 };
 
@@ -83,17 +95,23 @@ export const FORM_ORDER: Record<ChapterId, string[]> = {
     "113",
   ],
   personalInjury: [
+    "pi-retainer-ny",
     "pi-intake",
     "pi-medical",
+    "pi-experts",
     "pi-damages",
     "pi-insurance",
+    "pi-no-fault-ny",
     "pi-claim",
   ],
   realEstate: [
     "re-parties",
     "re-property",
+    "re-contract-ny",
     "re-transaction",
     "re-financing",
+    "re-due-diligence",
+    "re-taxes-ny",
     "re-closing",
   ],
 };
