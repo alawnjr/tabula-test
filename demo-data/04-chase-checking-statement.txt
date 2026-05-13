@@ -1,0 +1,41 @@
+JPMORGAN CHASE BANK, N.A.
+Member FDIC
+
+ACCOUNT STATEMENT — January 1, 2026 through January 31, 2026
+Statement date: February 1, 2026
+
+ELINOR M HAYES
+412 RIVERSIDE DR APT 7C
+NEW YORK NY 10025-1234
+
+ACCOUNT INFORMATION
+    Account number:    *****4821
+    Account type:      Chase Premier Plus Checking
+    Account holder:    Individual (Elinor M Hayes)
+
+ACCOUNT SUMMARY
+    Beginning balance        (01/01/2026)       $44,212.07
+    Total deposits / credits                     +$3,418.50
+    Total withdrawals / debits                   -$5,481.22
+    -----------------------------------------------------
+    Ending balance           (01/31/2026)       $42,149.35
+
+DEPOSITS
+    01/03  Social Security Admin (RTN)         $1,841.00
+    01/15  Columbia Univ Press (pension)       $1,577.50
+
+WITHDRAWALS (sample)
+    01/04  Con Edison utilities                  -$214.50
+    01/05  Shop & Stop Citarella                 -$148.20
+    01/12  ACH Aetna Medicare Supp               -$248.00
+    01/14  Check #2104  Estate Plan attny      -$1,200.00
+    01/20  Verizon Wireless                       -$78.00
+    01/25  Co-op maintenance (412 Riv Dr)      -$2,140.00
+    01/28  ATM withdrawal NY                     -$300.00
+    01/30  Misc                                 -$1,152.52
+
+ACCOUNT FEATURES
+    Pay-on-death (POD) beneficiary:  None on file
+    Joint owner:                      None
+
+For questions: 1-800-935-9935

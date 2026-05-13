@@ -86,20 +86,26 @@ function nowIso() {
 }
 
 function setDeep(
-  root: Record<string, unknown>,
+  root: Record<string, unknown> | unknown[],
   path: string[],
   value: FieldValue
-): Record<string, unknown> {
+): Record<string, unknown> | unknown[] {
   if (path.length === 0) return root;
   const [head, ...rest] = path;
-  const next = { ...root };
+  // Clone with the matching constructor — object spread on an array would
+  // collapse it to a plain object keyed by numeric strings, which then fails
+  // Array.isArray downstream and makes repeating-group rows disappear.
+  const next: Record<string, unknown> | unknown[] = Array.isArray(root)
+    ? [...root]
+    : { ...root };
+  const headIdx = Array.isArray(next) ? Number(head) : head;
   if (rest.length === 0) {
-    next[head] = value as unknown;
+    (next as Record<string, unknown>)[headIdx as string] = value as unknown;
     return next;
   }
   const childKey = rest[0];
   const isArrayChild = /^\d+$/.test(childKey);
-  const existing = next[head];
+  const existing = (next as Record<string, unknown>)[headIdx as string];
   const childContainer: Record<string, unknown> | unknown[] = isArrayChild
     ? Array.isArray(existing)
       ? [...existing]
@@ -107,8 +113,8 @@ function setDeep(
     : existing && typeof existing === "object" && !Array.isArray(existing)
     ? { ...(existing as Record<string, unknown>) }
     : {};
-  next[head] = setDeep(
-    childContainer as Record<string, unknown>,
+  (next as Record<string, unknown>)[headIdx as string] = setDeep(
+    childContainer,
     rest,
     value
   );
@@ -196,14 +202,16 @@ function deriveDebtorName(forms: Record<string, FormData>): string {
     const joined = parts.filter(Boolean).join(" ").trim();
     if (joined) return joined;
   }
-  // Personal injury: name comes from client intake form
-  const fIntake = forms["pi-intake"];
-  if (fIntake) {
-    const parts = ["clientNameFirst", "clientNameMiddle", "clientNameLast"].map(
-      (k) => (fIntake[k] as string | undefined) ?? ""
-    );
-    const joined = parts.filter(Boolean).join(" ").trim();
-    if (joined) return joined;
+  // Personal injury / estate admin: name comes from the intake form
+  for (const formId of ["pi-intake", "ea-intake"]) {
+    const f = forms[formId];
+    if (f) {
+      const parts = ["clientNameFirst", "clientNameMiddle", "clientNameLast"].map(
+        (k) => (f[k] as string | undefined) ?? ""
+      );
+      const joined = parts.filter(Boolean).join(" ").trim();
+      if (joined) return joined;
+    }
   }
   return "";
 }
@@ -276,7 +284,7 @@ export const useCaseStore = create<CaseStore>()((set, get) => ({
           ) as FormData;
           const newForms = { ...c.forms, [formId]: updatedForm };
           const debtorName =
-            formId === "101" || formId === "pi-intake"
+            formId === "101" || formId === "pi-intake" || formId === "ea-intake"
               ? deriveDebtorName(newForms)
               : c.debtorName;
           // A direct write clears the autofill mark; the review apply flow

@@ -1,0 +1,43 @@
+FIDELITY INVESTMENTS — Retirement Account Statement
+P.O. Box 770001 | Cincinnati, OH 45277-0003 | 1-800-343-3548
+
+Statement period: January 1, 2026 through January 31, 2026
+Statement date:   February 3, 2026
+
+ACCOUNT HOLDER
+    ELINOR M HAYES
+    412 RIVERSIDE DR APT 7C
+    NEW YORK NY 10025-1234
+
+ACCOUNT
+    Account number ending:  5512
+    Account type:           Traditional IRA (Rollover from 401(k))
+    Custodian:              Fidelity Brokerage Services LLC
+
+BENEFICIARY DESIGNATION (on file as of 11/02/2018)
+    Primary:        Daniel J. Hayes (son) — 100%
+                    SSN ending 4471
+                    DOB 02/14/1972
+    Contingent:     None on file
+    Last updated:   November 2, 2018
+
+ACCOUNT VALUE
+    Beginning balance (01/01/2026)       $483,109.40
+    Contributions                              $0.00
+    Distributions                              $0.00
+    Investment gains/(losses)              +$4,211.10
+    --------------------------------------------------
+    Ending balance     (01/31/2026)       $487,320.50
+
+CURRENT HOLDINGS
+    FXAIX  Fidelity 500 Index             $192,440.00
+    FBND   Fidelity Total Bond ETF         $98,720.30
+    FFIVX  Fidelity Freedom 2025           $144,210.00
+    Cash / SPAXX                            $51,950.20
+
+REQUIRED MINIMUM DISTRIBUTION
+    2025 RMD status: SATISFIED on 11/29/2025 ($21,440.00)
+    2026 RMD status: Pending (review in Q4)
+
+This statement is for informational purposes. Past performance does
+not guarantee future results.

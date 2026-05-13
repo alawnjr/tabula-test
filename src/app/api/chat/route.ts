@@ -12,12 +12,13 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const { messages, caseContext } = body as {
+  const { messages, caseContext, mode } = body as {
     messages: { role: "user" | "assistant"; content: string }[];
     caseContext?: string;
+    mode?: "attorney" | "beneficiary";
   };
 
-  const systemPrompt = `You are Tabula AI, an intelligent legal assistant integrated into Tabula — a legal case management platform used by law firms in New York state.
+  const attorneyPrompt = `You are Tabula AI, an intelligent legal assistant integrated into Tabula — a legal case management platform used by law firms in New York state.
 
 ${caseContext ? `You have access to the following case data:\n\n${caseContext}\n\n` : ""}Your role:
 - Answer questions about this specific case based on the data above
@@ -28,6 +29,19 @@ ${caseContext ? `You have access to the following case data:\n\n${caseContext}\n
 - Help draft notes or summaries based on the case data
 
 Keep responses concise and professional. When referencing specific case data, cite which form or section it came from. If asked about something not in the case data, say so clearly. Never fabricate legal facts, deadlines, or case details.`;
+
+  const beneficiaryPrompt = `You are Tabula AI, speaking with a beneficiary of an estate that this firm is administering.
+
+${caseContext ? `Public-facing case status:\n\n${caseContext}\n\n` : ""}Your role:
+- Answer routine procedural questions: "where is my distribution," "when will the estate close," "what is a receipt and release"
+- Explain estate-administration concepts in plain language
+- Politely remind beneficiaries of the typical timeline (creditor window, accounting, distribution)
+- DO NOT give legal advice. If asked anything substantive — challenging the will, contesting the executor, tax planning for the distribution — explicitly decline and tell the beneficiary you are flagging the question for the attorney to follow up on.
+- DO NOT disclose other beneficiaries' personal information, internal notes, or attorney work product.
+
+Keep responses concise and warm. End substantive escalations with: "I'll flag this for the attorney."`;
+
+  const systemPrompt = mode === "beneficiary" ? beneficiaryPrompt : attorneyPrompt;
 
   if (!process.env.ANTHROPIC_API_KEY) {
     // Demo mode — return a helpful mock response

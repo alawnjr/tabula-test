@@ -14,7 +14,7 @@ import { useCaseStore, type CaseRecord } from "@/state/case-store";
 import { chapterLabel } from "@/lib/schemas";
 import { ImportExport } from "@/components/case/ImportExport";
 import { ConvexStoreSync } from "@/components/ConvexStoreSync";
-import { caseSummary, piStats } from "@/lib/derived";
+import { caseSummary, piStats, eaStats } from "@/lib/derived";
 import { computeMeansTest } from "@/lib/meansTest";
 import { formatCurrency } from "@/lib/currency";
 import type { ChapterId } from "@/lib/schemas/types";
@@ -83,6 +83,8 @@ export function PracticeAreaDashboard({
         ? "122A-1"
         : chapter === "personalInjury"
         ? "pi-intake"
+        : chapter === "estateAdmin"
+        ? "ea-intake"
         : "101";
     const now = new Date().toISOString();
     const forms: Record<string, Record<string, unknown>> =
@@ -142,6 +144,8 @@ export function PracticeAreaDashboard({
   const untitledLabel =
     chapters.includes("chapter7") || chapters.includes("chapter13") || chapters.includes("meansTest")
       ? "Untitled debtor"
+      : chapters.includes("estateAdmin")
+      ? "Untitled estate"
       : "Untitled client";
 
   return (
@@ -368,6 +372,32 @@ function CaseStats({ record }: { record: CaseRecord }) {
           label="Status"
           value={r.verdictLabel}
           accent={r.verdict === "below-median" || r.verdict === "safe-harbor"}
+        />
+      </>
+    );
+  }
+  if (record.chapter === "estateAdmin") {
+    const s = eaStats(record.forms);
+    return (
+      <>
+        <Stat
+          label="Date of death"
+          value={
+            s.decedentDod
+              ? new Date(s.decedentDod).toLocaleDateString(undefined, {
+                  dateStyle: "medium",
+                })
+              : "—"
+          }
+        />
+        <Stat
+          label="Gross estate"
+          value={s.grossEstate > 0 ? formatCurrency(s.grossEstate) : "—"}
+          accent={s.grossEstate > 0}
+        />
+        <Stat
+          label="Beneficiaries"
+          value={s.beneficiaryCount > 0 ? String(s.beneficiaryCount) : "—"}
         />
       </>
     );

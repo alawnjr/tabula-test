@@ -207,6 +207,231 @@ function mapItem(
         },
       ];
 
+    case "eaDecedent": {
+      const out: FormPatch[] = [];
+      const intakeFields: Array<[string, unknown]> = [
+        ["clientNameFirst", item.nameFirst],
+        ["clientNameMiddle", item.nameMiddle],
+        ["clientNameLast", item.nameLast],
+        ["decedentDob", item.dob],
+        ["decedentDod", item.dod],
+        ["decedentSsnLast4", item.ssnLast4],
+        ["domicileState", item.domicileState],
+        ["decedentAddressStreet", item.addressStreet],
+        ["decedentAddressCity", item.addressCity],
+        ["decedentAddressState", item.addressState],
+        ["decedentAddressZip", item.addressZip],
+      ];
+      for (const [field, value] of intakeFields) {
+        if (value === undefined || value === null || value === "") continue;
+        out.push({
+          id: newPatchId(),
+          formId: "ea-intake",
+          op: { kind: "setField", path: [field], value },
+          label: `Set ${field}: ${String(value)}`,
+          source,
+          sourceLabel,
+        });
+      }
+      return out;
+    }
+
+    case "eaBeneficiary":
+      return [
+        {
+          id: newPatchId(),
+          formId: "ea-beneficiaries",
+          op: {
+            kind: "appendGroup",
+            groupId: item.contingent ? "contingentBeneficiaries" : "beneficiaries",
+            fields: {
+              name: item.name ?? "",
+              relationship: item.relationship ?? "",
+              sharePercent: item.sharePercent ?? 0,
+            },
+          },
+          label: `Add ${item.contingent ? "contingent " : ""}beneficiary: ${item.name ?? "?"}${
+            item.sharePercent ? ` (${item.sharePercent}%)` : ""
+          }`,
+          source,
+          sourceLabel,
+        },
+      ];
+
+    case "eaBequest":
+      return [
+        {
+          id: newPatchId(),
+          formId: "ea-will",
+          op: {
+            kind: "appendGroup",
+            groupId: "specificBequests",
+            fields: {
+              beneficiaryName: item.beneficiaryName ?? "",
+              description: item.description ?? "",
+              estimatedValue: item.estimatedValue ?? 0,
+            },
+          },
+          label: `Add bequest to ${item.beneficiaryName ?? "?"}: ${item.description ?? ""}`,
+          source,
+          sourceLabel,
+        },
+      ];
+
+    case "eaRealProperty":
+      return [
+        {
+          id: newPatchId(),
+          formId: "ea-inventory",
+          op: {
+            kind: "appendGroup",
+            groupId: "realProperty",
+            fields: {
+              description: item.description ?? "",
+              addressStreet: item.addressStreet ?? "",
+              addressCity: item.addressCity ?? "",
+              addressState: item.addressState ?? "",
+              addressZip: item.addressZip ?? "",
+              parcelId: item.parcelId ?? "",
+              titleType: item.titleType ?? "",
+              dateOfDeathValue: item.dateOfDeathValue ?? 0,
+              mortgageBalance: item.mortgageBalance ?? 0,
+            },
+          },
+          label: `Add real property: ${item.description ?? item.addressStreet ?? "property"} — $${
+            item.dateOfDeathValue ?? 0
+          }`,
+          source,
+          sourceLabel,
+        },
+      ];
+
+    case "eaFinancialAccount":
+      return [
+        {
+          id: newPatchId(),
+          formId: "ea-inventory",
+          op: {
+            kind: "appendGroup",
+            groupId: "financialAccounts",
+            fields: {
+              institution: item.institution ?? "",
+              accountType: item.accountType ?? "",
+              lastFour: item.lastFour ?? "",
+              titleType: item.titleType ?? "",
+              todBeneficiary: item.todBeneficiary ?? "",
+              dateOfDeathValue: item.dateOfDeathValue ?? 0,
+            },
+          },
+          label: `Add financial account: ${item.institution ?? "?"} ${
+            item.lastFour ? `***${item.lastFour}` : ""
+          } — $${item.dateOfDeathValue ?? 0}`,
+          source,
+          sourceLabel,
+        },
+      ];
+
+    case "eaRetirementAccount":
+      return [
+        {
+          id: newPatchId(),
+          formId: "ea-inventory",
+          op: {
+            kind: "appendGroup",
+            groupId: "retirementAccounts",
+            fields: {
+              institution: item.institution ?? "",
+              accountType: item.accountType ?? "",
+              lastFour: item.lastFour ?? "",
+              designatedBeneficiary: item.designatedBeneficiary ?? "",
+              designatedContingent: item.designatedContingent ?? "",
+              dateOfDeathValue: item.dateOfDeathValue ?? 0,
+            },
+          },
+          label: `Add retirement: ${item.institution ?? "?"} ${item.accountType ?? ""} — $${
+            item.dateOfDeathValue ?? 0
+          }${item.designatedBeneficiary ? ` (→ ${item.designatedBeneficiary})` : ""}`,
+          source,
+          sourceLabel,
+        },
+      ];
+
+    case "eaLifeInsurance":
+      return [
+        {
+          id: newPatchId(),
+          formId: "ea-inventory",
+          op: {
+            kind: "appendGroup",
+            groupId: "lifeInsurance",
+            fields: {
+              insurer: item.insurer ?? "",
+              policyNumber: item.policyNumber ?? "",
+              owner: item.owner ?? "",
+              designatedBeneficiary: item.designatedBeneficiary ?? "",
+              estateIsBeneficiary: item.estateIsBeneficiary ? "yes" : "no",
+              deathBenefit: item.deathBenefit ?? 0,
+            },
+          },
+          label: `Add life insurance: ${item.insurer ?? "?"} #${item.policyNumber ?? "?"} — $${
+            item.deathBenefit ?? 0
+          }`,
+          source,
+          sourceLabel,
+        },
+      ];
+
+    case "eaVehicle":
+      return [
+        {
+          id: newPatchId(),
+          formId: "ea-inventory",
+          op: {
+            kind: "appendGroup",
+            groupId: "vehicles",
+            fields: {
+              year: item.year ?? "",
+              make: item.make ?? "",
+              model: item.model ?? "",
+              vin: item.vin ?? "",
+              titleType: item.titleType ?? "",
+              dateOfDeathValue: item.dateOfDeathValue ?? 0,
+              loanBalance: item.loanBalance ?? 0,
+            },
+          },
+          label: `Add vehicle: ${[item.year, item.make, item.model].filter(Boolean).join(" ")} — $${
+            item.dateOfDeathValue ?? 0
+          }`,
+          source,
+          sourceLabel,
+        },
+      ];
+
+    case "eaDebt":
+      return [
+        {
+          id: newPatchId(),
+          formId: "ea-liabilities",
+          op: {
+            kind: "appendGroup",
+            groupId: "knownDebts",
+            fields: {
+              creditor: item.creditor ?? "",
+              kind: item.debtKind ?? "other",
+              lastFour: item.lastFour ?? "",
+              amount: item.amount ?? 0,
+              incurredDate: item.incurredDate ?? "",
+              secured: item.secured ? true : false,
+            },
+          },
+          label: `Add debt: ${item.creditor ?? "?"} (${item.debtKind ?? "other"}) — $${
+            item.amount ?? 0
+          }`,
+          source,
+          sourceLabel,
+        },
+      ];
+
     case "payStub": {
       const prefix = item.debtor === 2 ? "d2" : "d1";
       const empPrefix = item.debtor === 2 ? "debtor2" : "debtor1";

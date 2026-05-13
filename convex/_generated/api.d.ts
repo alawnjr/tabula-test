@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as beneficiary from "../beneficiary.js";
 import type * as cases from "../cases.js";
+import type * as draftNarrative from "../draftNarrative.js";
 import type * as extract from "../extract.js";
 
 import type {
@@ -18,7 +20,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  beneficiary: typeof beneficiary;
   cases: typeof cases;
+  draftNarrative: typeof draftNarrative;
   extract: typeof extract;
 }>;
 

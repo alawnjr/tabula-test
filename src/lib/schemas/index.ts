@@ -21,6 +21,14 @@ import { piDamages } from "./pi-damages";
 import { piInsurance } from "./pi-insurance";
 import { piNoFaultNy } from "./pi-no-fault-ny";
 import { piClaim } from "./pi-claim";
+import { eaIntake } from "./ea-intake";
+import { eaDecedent } from "./ea-decedent";
+import { eaWill } from "./ea-will";
+import { eaBeneficiaries } from "./ea-beneficiaries";
+import { eaInventory } from "./ea-inventory";
+import { eaLiabilities } from "./ea-liabilities";
+import { eaTax } from "./ea-tax";
+import { eaDistribution } from "./ea-distribution";
 import type { ChapterId, FormSchema } from "./types";
 
 export const SCHEMAS: Record<string, FormSchema> = {
@@ -47,6 +55,14 @@ export const SCHEMAS: Record<string, FormSchema> = {
   "pi-insurance": piInsurance,
   "pi-no-fault-ny": piNoFaultNy,
   "pi-claim": piClaim,
+  "ea-intake": eaIntake,
+  "ea-decedent": eaDecedent,
+  "ea-will": eaWill,
+  "ea-beneficiaries": eaBeneficiaries,
+  "ea-inventory": eaInventory,
+  "ea-liabilities": eaLiabilities,
+  "ea-tax": eaTax,
+  "ea-distribution": eaDistribution,
 };
 
 export const FORM_ORDER: Record<ChapterId, string[]> = {
@@ -88,6 +104,16 @@ export const FORM_ORDER: Record<ChapterId, string[]> = {
     "pi-no-fault-ny",
     "pi-claim",
   ],
+  estateAdmin: [
+    "ea-intake",
+    "ea-decedent",
+    "ea-will",
+    "ea-beneficiaries",
+    "ea-inventory",
+    "ea-liabilities",
+    "ea-tax",
+    "ea-distribution",
+  ],
 };
 
 export function getSchema(formId: string): FormSchema | undefined {
@@ -99,11 +125,15 @@ export function chapterLabel(chapter: ChapterId): string {
   if (chapter === "chapter13") return "Chapter 13";
   if (chapter === "meansTest") return "Means test";
   if (chapter === "personalInjury") return "Personal Injury";
+  if (chapter === "estateAdmin") return "Estate Administration";
   return chapter;
 }
 
-export function practiceAreaOf(chapter: ChapterId): "bankruptcy" | "personalInjury" {
+export function practiceAreaOf(
+  chapter: ChapterId
+): "bankruptcy" | "personalInjury" | "estateAdmin" {
   if (chapter === "personalInjury") return "personalInjury";
+  if (chapter === "estateAdmin") return "estateAdmin";
   return "bankruptcy";
 }
 

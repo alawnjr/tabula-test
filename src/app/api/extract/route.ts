@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { extractFromPdf } from "@/lib/integrations/extractor";
+import { extractFromPdf, type ExtractionPracticeArea } from "@/lib/integrations/extractor";
 import { buildPatches } from "@/lib/integrations/mapping";
 
 export const runtime = "nodejs";
@@ -27,9 +27,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const practiceAreaRaw = form?.get("practiceArea");
+  const practiceArea: ExtractionPracticeArea =
+    practiceAreaRaw === "estateAdmin" ? "estateAdmin" : "bankruptcy";
+
   const bytes = new Uint8Array(await file.arrayBuffer());
   try {
-    const extracted = await extractFromPdf(bytes, file.name);
+    const extracted = await extractFromPdf(bytes, file.name, practiceArea);
     const patches = buildPatches(extracted);
     return Response.json({ extracted, patches });
   } catch (err) {
