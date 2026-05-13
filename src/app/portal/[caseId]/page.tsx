@@ -62,8 +62,6 @@ export default function PortalCaseOverview({
   const uploadDesc =
     practiceArea === "personalInjury"
       ? "Medical records, police reports, insurance documents"
-      : practiceArea === "realEstate"
-      ? "Purchase agreements, title documents, financial records"
       : "Bank statements, pay stubs, tax returns";
   const formsDesc =
     practiceArea === "bankruptcy"

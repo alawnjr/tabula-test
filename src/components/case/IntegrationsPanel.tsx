@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { useReviewStore } from "@/state/review-store";
 import { useCaseStore } from "@/state/case-store";
 import { buildPatches } from "@/lib/integrations/mapping";
+import { practiceAreaOf } from "@/lib/schemas";
 import type { ExtractedDoc, FormPatch } from "@/lib/integrations/types";
 import { cn } from "@/lib/utils";
 
@@ -93,6 +94,11 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
   const dragCount = useRef(0);
   const addDoc = useReviewStore((s) => s.addDoc);
   const setBankData = useCaseStore((s) => s.setBankData);
+  const caseChapter = useCaseStore((s) => s.cases[caseId]?.chapter);
+  const extractionArea: "bankruptcy" | "estateAdmin" =
+    caseChapter && practiceAreaOf(caseChapter) === "estateAdmin"
+      ? "estateAdmin"
+      : "bankruptcy";
   const generateUploadUrl = useMutation(api.cases.generateUploadUrl);
   const extractFromStorage = useAction(api.extract.extractFromStorage);
   const submitUpload = useMutation(api.cases.submitDebtorUpload);
@@ -164,6 +170,7 @@ export function IntegrationsPanel({ caseId }: { caseId: string }) {
           storageId,
           filename: file.name,
           mimeType: file.type,
+          practiceArea: extractionArea,
         })) as ExtractedDoc;
 
         const patches = buildPatches(extracted);

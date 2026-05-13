@@ -26,15 +26,6 @@ function intakeConfig(chapter: ChapterId): {
         "Fill in your personal details and describe the incident. Your attorney will review this before proceeding.",
     };
   }
-  if (chapter === "realEstate") {
-    return {
-      formId: "re-parties",
-      sectionIds: ["client"],
-      title: "Your information",
-      description:
-        "Fill in your contact details and your role in this transaction. Your attorney will review this before proceeding.",
-    };
-  }
   // Bankruptcy (chapter7, chapter13, meansTest)
   return {
     formId: "101",

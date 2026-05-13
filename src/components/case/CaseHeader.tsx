@@ -71,8 +71,8 @@ export function CaseHeader({ caseId }: { caseId: string }) {
             href={
               record.chapter === "personalInjury"
                 ? "/personal-injury"
-                : record.chapter === "realEstate"
-                ? "/real-estate"
+                : record.chapter === "estateAdmin"
+                ? "/estate-admin"
                 : "/bankruptcy"
             }
             className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--mute)] hover:text-[var(--ink)] shrink-0"
@@ -111,6 +111,8 @@ export function CaseHeader({ caseId }: { caseId: string }) {
                   <em className="text-[var(--mute)]">
                     {practiceAreaOf(record.chapter) === "bankruptcy"
                       ? "Untitled debtor"
+                      : practiceAreaOf(record.chapter) === "estateAdmin"
+                      ? "Untitled estate"
                       : "Untitled client"}
                   </em>
                 )}

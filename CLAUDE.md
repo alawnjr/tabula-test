@@ -37,12 +37,11 @@ See [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) for all integration env vars 
 
 ## What this is
 
-A multi-practice-area legal case-builder covering three practice areas:
+A multi-practice-area legal case-builder covering two practice areas:
 - **Bankruptcy** — Chapter 7, Chapter 13, and standalone means test. Official court forms (101, 106AB–J, 107, 113, 122A-1/2) with bank data and document extraction.
 - **Personal Injury** — Client intake, incident details, medical treatment, damages, insurance, claim/demand tracking.
-- **Real Estate** — Parties, property details, transaction terms, financing, title/closing.
 
-The landing page (`/`) lets attorneys choose a practice area. Each area has its own dashboard (`/bankruptcy`, `/personal-injury`, `/real-estate`), but all cases share the same case workspace at `/case/[caseId]/…`.
+The landing page (`/`) lets attorneys choose a practice area. Each area has its own dashboard (`/bankruptcy`, `/personal-injury`), but all cases share the same case workspace at `/case/[caseId]/…`.
 
 ## Two user roles, two route trees
 
@@ -70,7 +69,7 @@ All form edits go through `useCaseStore` (Zustand, `src/state/case-store.ts`). `
 
 **Critical**: `src/lib/integrations/mapping.ts` hard-codes schema field IDs as plain strings. If you rename a field in a schema file, mapping silently breaks — update `mapping.ts` in the same commit.
 
-`ChapterId` (`src/lib/schemas/types.ts`) is `"chapter7" | "chapter13" | "meansTest" | "personalInjury" | "realEstate"`. The `practiceAreaOf(chapter)` helper in `src/lib/schemas/index.ts` maps chapters to `"bankruptcy" | "personalInjury" | "realEstate"` — use it to guard bankruptcy-specific logic. The `PracticeAreaDashboard` component (`src/components/case/PracticeAreaDashboard.tsx`) is the shared dashboard used by all three area pages.
+`ChapterId` (`src/lib/schemas/types.ts`) is `"chapter7" | "chapter13" | "meansTest" | "personalInjury"`. The `practiceAreaOf(chapter)` helper in `src/lib/schemas/index.ts` maps chapters to `"bankruptcy" | "personalInjury"` — use it to guard bankruptcy-specific logic. The `PracticeAreaDashboard` component (`src/components/case/PracticeAreaDashboard.tsx`) is the shared dashboard used by all area pages.
 
 ## Integrations lane
 

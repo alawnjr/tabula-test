@@ -28,6 +28,10 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
   const printHref = `/case/${caseId}/print`;
   const filesHref = `/case/${caseId}/files`;
   const assistantHref = `/case/${caseId}/assistant`;
+  const calendarHref = `/case/${caseId}/calendar`;
+  const taxHref = `/case/${caseId}/tax`;
+  const reconciliationHref = `/case/${caseId}/reconciliation`;
+  const isEstateAdmin = record.chapter === "estateAdmin";
 
   const meansTestIds = ["122A-1", "122A-2", "122Result"];
   // Only show the linked means-test section for bankruptcy chapters (not PI/RE)
@@ -98,6 +102,29 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
           active={pathname === assistantHref}
         />
       </div>
+
+      {isEstateAdmin ? (
+        <div className="space-y-0.5">
+          <p className="px-1.5 pb-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">
+            Estate
+          </p>
+          <SidebarLink
+            href={calendarHref}
+            label="Calendar"
+            active={pathname === calendarHref}
+          />
+          <SidebarLink
+            href={reconciliationHref}
+            label="Reconciliation"
+            active={pathname === reconciliationHref}
+          />
+          <SidebarLink
+            href={taxHref}
+            label="Tax coordination"
+            active={pathname === taxHref}
+          />
+        </div>
+      ) : null}
 
       <div className="space-y-0.5">
         <div className="flex items-baseline justify-between px-1.5 pb-1.5">

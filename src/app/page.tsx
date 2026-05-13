@@ -20,12 +20,12 @@ const AREAS = [
     accent: false,
   },
   {
-    href: "/real-estate",
-    label: "Real Estate",
-    badge: "RE",
-    title: "Transactions, closed cleanly.",
+    href: "/estate-admin",
+    label: "Estate Administration",
+    badge: "EA",
+    title: "Estates, administered end to end.",
     description:
-      "Coordinate parties, track contingencies, manage title and financing, and guide every matter to a smooth closing.",
+      "Intake the decedent and will, build the inventory, track jurisdictional deadlines, and generate the petition, accounting, and tax filings.",
     accent: false,
   },
 ];
@@ -60,7 +60,7 @@ export default function LandingPage() {
             <em>all in one place.</em>
           </h1>
           <p className="max-w-[52ch] text-[15px] font-light leading-relaxed text-[var(--ink-2)]">
-            Tabula covers bankruptcy, personal injury, and real estate. Choose your practice area to get started.
+            Tabula covers bankruptcy, personal injury, and estate administration. Choose your practice area to get started.
           </p>
         </section>
 

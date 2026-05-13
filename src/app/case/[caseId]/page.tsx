@@ -7,7 +7,8 @@ import { FORM_ORDER, getSchema, practiceAreaOf } from "@/lib/schemas";
 import { SummaryView } from "@/components/case/SummaryView";
 import { MeansTestResult } from "@/components/case/MeansTestResult";
 import { PISummaryView } from "@/components/case/PISummaryView";
-import { RESummaryView } from "@/components/case/RESummaryView";
+import { EASummaryView } from "@/components/case/EASummaryView";
+import { BeneficiaryAccessPanel } from "@/components/case/BeneficiaryAccessPanel";
 
 export default function CaseOverviewPage({
   params,
@@ -31,6 +32,8 @@ export default function CaseOverviewPage({
             <em className="text-[var(--mute)]">
               {practiceAreaOf(record.chapter) === "bankruptcy"
                 ? "Untitled debtor"
+                : practiceAreaOf(record.chapter) === "estateAdmin"
+                ? "Untitled estate"
                 : "Untitled client"}
             </em>
           )}
@@ -47,8 +50,11 @@ export default function CaseOverviewPage({
         <MeansTestResult caseId={caseId} />
       ) : record.chapter === "personalInjury" ? (
         <PISummaryView />
-      ) : record.chapter === "realEstate" ? (
-        <RESummaryView />
+      ) : record.chapter === "estateAdmin" ? (
+        <>
+          <EASummaryView />
+          <BeneficiaryAccessPanel caseId={caseId} />
+        </>
       ) : (
         <SummaryView />
       )}

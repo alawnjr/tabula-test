@@ -1,6 +1,6 @@
 # Tabula
 
-An AI-first legal case management platform for New York law firms. Built for practices specializing in personal injury, real estate, and bankruptcy — with intelligent document extraction, a case-aware AI assistant, and a client self-service portal.
+An AI-first legal case management platform for New York law firms. Built for practices specializing in personal injury and bankruptcy — with intelligent document extraction, a case-aware AI assistant, and a client self-service portal.
 
 > **Target market:** NY boutique firms that need the depth of Clio with the AI-native experience of Legora OS, without the enterprise price tag.
 
@@ -11,7 +11,6 @@ An AI-first legal case management platform for New York law firms. Built for pra
 ### Practice areas
 - **Bankruptcy** — Chapter 7, Chapter 13, and standalone means test (§707(b)). Official court schedules 101, 106A/B–J, 107, 113, 122A-1/2, means test result.
 - **Personal Injury (NY)** — Client intake, medical treatment, damages & losses, insurance, no-fault/NF-2, expert witnesses, retainer & fee calculation, claim/demand tracking. NY-specific: Notice of Claim (GML §50-e), §50-h hearing, serious injury threshold (§5102(d)), SOL tracking (CPLR), WC/Medicare/Medicaid lien tracking, NY litigation workflow (index number, RJI, Bill of Particulars, EBT, Note of Issue), infant compromise proceedings.
-- **Real Estate (NY)** — Parties & agents, property details (co-op/condo/single-family), contract of sale, transaction terms, financing (including co-op UCC/share loans), due diligence (title search, judgment/lien search, NYC DOB/ECB/HPD violations, CO & zoning, UCC search), NY tax forms (TP-584, RP-5217, NYC RPT, mansion tax, MRT/CEMA, IT-2663/2664, FIRPTA), title & closing with ACRIS recording.
 
 ### Schema-driven forms
 Every field in every form is defined in a TypeScript schema (`src/lib/schemas/`). The `FormRenderer` component is fully generic — no code changes needed to add a new form, just a schema file. Conditional field visibility (`visibleIf`) is handled automatically.
@@ -26,7 +25,7 @@ Teller Connect links a bank account → transactions are pulled → Claude maps 
 Case-aware AI chatbot powered by Claude Sonnet. Has full context of all filled form data for the current case. Available as a floating popup on every case page and as a full-screen "Virtual Assistant" tab in the case workspace. Answers questions about deadlines, legal concepts, next steps, and case-specific details.
 
 ### Client portal
-Shareable link sent to client by email. Client logs in, completes a practice-area-appropriate intake form, and uploads documents — all without needing attorney access. Portal intake adapts to practice area (PI client intake vs. RE parties form vs. bankruptcy debtor info).
+Shareable link sent to client by email. Client logs in, completes a practice-area-appropriate intake form, and uploads documents — all without needing attorney access. Portal intake adapts to practice area (PI client intake vs. bankruptcy debtor info).
 
 ### Authentication & data
 - **Clerk** for authentication (attorneys and clients share the same auth system, access-controlled at the Convex query/mutation level)

@@ -66,7 +66,7 @@ export const create = mutation({
       v.literal("chapter13"),
       v.literal("meansTest"),
       v.literal("personalInjury"),
-      v.literal("realEstate")
+      v.literal("estateAdmin")
     ),
     debtorName: v.string(),
     createdAt: v.string(),

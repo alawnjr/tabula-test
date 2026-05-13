@@ -101,6 +101,105 @@ export type MonthlyOtherIncomeItem = {
   debtor1Amount: number;
 };
 
+// === Estate-admin extraction items ===
+// Used when the case is an `estateAdmin` matter. The extraction prompt
+// receives the practice area and returns these kinds rather than the
+// bankruptcy kinds above.
+
+export type EaDecedentItem = {
+  kind: "eaDecedent";
+  nameFirst?: string;
+  nameMiddle?: string;
+  nameLast?: string;
+  dob?: string; // YYYY-MM-DD
+  dod?: string; // YYYY-MM-DD
+  ssnLast4?: string;
+  domicileState?: string;
+  addressStreet?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressZip?: string;
+};
+
+export type EaBeneficiaryItem = {
+  kind: "eaBeneficiary";
+  name?: string;
+  relationship?: string;
+  sharePercent?: number;
+  contingent?: boolean;
+};
+
+export type EaBequestItem = {
+  kind: "eaBequest";
+  beneficiaryName?: string;
+  description?: string;
+  estimatedValue?: number;
+};
+
+export type EaRealPropertyItem = {
+  kind: "eaRealProperty";
+  description?: string;
+  addressStreet?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressZip?: string;
+  parcelId?: string;
+  titleType?: string;
+  dateOfDeathValue?: number;
+  mortgageBalance?: number;
+};
+
+export type EaFinancialAccountItem = {
+  kind: "eaFinancialAccount";
+  institution?: string;
+  accountType?: string;
+  lastFour?: string;
+  titleType?: string;
+  todBeneficiary?: string;
+  dateOfDeathValue?: number;
+};
+
+export type EaRetirementAccountItem = {
+  kind: "eaRetirementAccount";
+  institution?: string;
+  accountType?: string;
+  lastFour?: string;
+  designatedBeneficiary?: string;
+  designatedContingent?: string;
+  dateOfDeathValue?: number;
+};
+
+export type EaLifeInsuranceItem = {
+  kind: "eaLifeInsurance";
+  insurer?: string;
+  policyNumber?: string;
+  owner?: string;
+  designatedBeneficiary?: string;
+  estateIsBeneficiary?: boolean;
+  deathBenefit?: number;
+};
+
+export type EaVehicleItem = {
+  kind: "eaVehicle";
+  year?: number;
+  make?: string;
+  model?: string;
+  vin?: string;
+  titleType?: string;
+  dateOfDeathValue?: number;
+  loanBalance?: number;
+};
+
+export type EaDebtItem = {
+  kind: "eaDebt";
+  creditor?: string;
+  debtKind?: string;
+  lastFour?: string;
+  amount?: number;
+  incurredDate?: string;
+  secured?: boolean;
+};
+
 export type ExtractedItem =
   | DepositAccountItem
   | SecuredDebtItem
@@ -110,7 +209,16 @@ export type ExtractedItem =
   | RetirementItem
   | PayStubItem
   | MonthlyScalarItem
-  | MonthlyOtherIncomeItem;
+  | MonthlyOtherIncomeItem
+  | EaDecedentItem
+  | EaBeneficiaryItem
+  | EaBequestItem
+  | EaRealPropertyItem
+  | EaFinancialAccountItem
+  | EaRetirementAccountItem
+  | EaLifeInsuranceItem
+  | EaVehicleItem
+  | EaDebtItem;
 
 export type BankTransaction = {
   accountId: string;

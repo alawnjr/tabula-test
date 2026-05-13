@@ -218,6 +218,69 @@ export function caseSummary(record: CaseRecord) {
   };
 }
 
+export function eaStats(forms: Record<string, FormData>) {
+  const intake = forms["ea-intake"] ?? {};
+  const inventory = forms["ea-inventory"] ?? {};
+  const liabilities = forms["ea-liabilities"] ?? {};
+  const beneficiaries = forms["ea-beneficiaries"] ?? {};
+
+  const realProperty = sumGroup(inventory, "realProperty", "dateOfDeathValue");
+  const financial = sumGroup(inventory, "financialAccounts", "dateOfDeathValue");
+  const retirement = sumGroup(inventory, "retirementAccounts", "dateOfDeathValue");
+  const lifeInsurance = sumGroup(inventory, "lifeInsurance", "deathBenefit");
+  const vehicles = sumGroup(inventory, "vehicles", "dateOfDeathValue");
+  const personal = sumGroup(inventory, "personalProperty", "dateOfDeathValue");
+  const business = sumGroup(inventory, "businessInterests", "dateOfDeathValue");
+  const grossEstate =
+    realProperty + financial + retirement + lifeInsurance + vehicles + personal + business;
+
+  const knownDebts = sumGroup(liabilities, "knownDebts", "amount");
+  const filedClaims = sumGroup(liabilities, "creditorClaims", "claimedAmount");
+  const adminExpenses = fieldsTotal(liabilities, [
+    "funeralExpenses",
+    "lastIllnessExpenses",
+    "fiduciaryCommissions",
+    "attorneyFees",
+    "accountantFees",
+    "courtFees",
+    "otherAdminExpenses",
+  ]);
+  const totalLiabilities = knownDebts + filedClaims + adminExpenses;
+
+  const beneficiaryList = Array.isArray(beneficiaries.beneficiaries)
+    ? (beneficiaries.beneficiaries as unknown[])
+    : [];
+  const beneficiaryCount = beneficiaryList.length;
+
+  const dod = (intake.decedentDod as string | undefined) ?? null;
+  const daysSinceDod = dod
+    ? Math.max(0, Math.floor((Date.now() - new Date(dod).getTime()) / (1000 * 60 * 60 * 24)))
+    : null;
+
+  return {
+    grossEstate,
+    realProperty,
+    financial,
+    retirement,
+    lifeInsurance,
+    vehicles,
+    personal,
+    business,
+    totalLiabilities,
+    knownDebts,
+    filedClaims,
+    adminExpenses,
+    netEstate: grossEstate - totalLiabilities,
+    beneficiaryCount,
+    decedentDod: dod,
+    daysSinceDod,
+    domicileState: (intake.domicileState as string | undefined) ?? null,
+    willStatus: (intake.willExists as string | undefined) ?? null,
+    letterStatus: (intake.letterStatus as string | undefined) ?? null,
+    lettersIssuedDate: (intake.lettersIssuedDate as string | undefined) ?? null,
+  };
+}
+
 export function piStats(forms: Record<string, FormData>) {
   const intake = forms["pi-intake"] ?? {};
   const damages = forms["pi-damages"] ?? {};
@@ -238,20 +301,3 @@ export function piStats(forms: Record<string, FormData>) {
   };
 }
 
-export function reStats(forms: Record<string, FormData>) {
-  const transaction = forms["re-transaction"] ?? {};
-  const property = forms["re-property"] ?? {};
-  const financing = forms["re-financing"] ?? {};
-  const propStreet = (property.propertyStreet as string | undefined) ?? "";
-  const propCity = (property.propertyCity as string | undefined) ?? "";
-  const propertyAddress = [propStreet, propCity].filter(Boolean).join(", ");
-  return {
-    transactionType: (transaction.transactionType as string | undefined) ?? null,
-    purchasePrice: num(transaction.purchasePrice),
-    expectedClosingDate: (transaction.expectedClosingDate as string | undefined) ?? null,
-    contractDate: (transaction.contractDate as string | undefined) ?? null,
-    propertyAddress,
-    financingType: (financing.financingType as string | undefined) ?? null,
-    loanAmount: num(financing.loanAmount),
-  };
-}

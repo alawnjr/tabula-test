@@ -24,7 +24,7 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "Tabula — Legal Case Builder",
   description:
-    "Tabula is a legal case-builder for bankruptcy, personal injury, and real estate practices.",
+    "Tabula is a legal case-builder for bankruptcy and personal injury practices.",
 };
 
 export default function RootLayout({
