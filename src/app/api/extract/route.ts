@@ -1,25 +1,35 @@
 import { NextRequest } from "next/server";
-import { getDoc } from "@/lib/integrations/store";
 import { extractFromPdf } from "@/lib/integrations/extractor";
 import { buildPatches } from "@/lib/integrations/mapping";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const MAX_BYTES = 10 * 1024 * 1024;
+const ALLOWED = new Set(["application/pdf", "image/png", "image/jpeg"]);
+
 export async function POST(request: NextRequest) {
-  const body = (await request.json().catch(() => null)) as {
-    docId?: string;
-  } | null;
-  if (!body?.docId) {
-    return Response.json({ error: "Missing docId" }, { status: 400 });
+  const form = await request.formData().catch(() => null);
+  const file = form?.get("file");
+  if (!(file instanceof File)) {
+    return Response.json({ error: "Missing file" }, { status: 400 });
   }
-  const doc = getDoc(body.docId);
-  if (!doc) {
-    return Response.json({ error: "Doc not found" }, { status: 404 });
+  if (!ALLOWED.has(file.type)) {
+    return Response.json(
+      { error: `Unsupported type: ${file.type || "unknown"}` },
+      { status: 415 }
+    );
+  }
+  if (file.size > MAX_BYTES) {
+    return Response.json(
+      { error: `File too large (${file.size} bytes; max ${MAX_BYTES})` },
+      { status: 413 }
+    );
   }
 
+  const bytes = new Uint8Array(await file.arrayBuffer());
   try {
-    const extracted = await extractFromPdf(doc.bytes, doc.filename);
+    const extracted = await extractFromPdf(bytes, file.name);
     const patches = buildPatches(extracted);
     return Response.json({ extracted, patches });
   } catch (err) {

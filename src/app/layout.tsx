@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ConvexClientProvider } from "./ConvexClientProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,9 +22,9 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Case Builder — Chapter 7 & 13 Bankruptcy",
+  title: "Tabula — Legal Case Builder",
   description:
-    "Build a Chapter 7 or Chapter 13 bankruptcy case schedule by schedule.",
+    "Tabula is a legal case-builder for bankruptcy, personal injury, and real estate practices.",
 };
 
 export default function RootLayout({
@@ -34,7 +36,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} h-full antialiased`}
     >
       <body className="relative min-h-full flex flex-col">
-        <div className="relative z-[2] flex flex-1 flex-col">{children}</div>
+        <ClerkProvider>
+          <ConvexClientProvider>
+            <div className="relative z-[2] flex flex-1 flex-col">{children}</div>
+          </ConvexClientProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

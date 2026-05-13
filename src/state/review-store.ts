@@ -110,7 +110,7 @@ export const useReviewStore = create<ReviewStore>()(
         set((s) => ({ bundles: withoutBundle(s.bundles, caseId) })),
     }),
     {
-      name: "case-builder:review:v1",
+      name: "tabula:review:v1",
       storage: createJSONStorage(() => localStorage),
       version: 1,
     }

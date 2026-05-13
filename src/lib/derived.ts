@@ -217,3 +217,41 @@ export function caseSummary(record: CaseRecord) {
     net: monthlyNet(record.forms),
   };
 }
+
+export function piStats(forms: Record<string, FormData>) {
+  const intake = forms["pi-intake"] ?? {};
+  const damages = forms["pi-damages"] ?? {};
+  const claim = forms["pi-claim"] ?? {};
+  const totalDamages =
+    num(damages.totalMedicalBills) +
+    num(damages.estimatedFutureMedical) +
+    num(damages.propertyDamage) +
+    num(damages.totalLostWages) +
+    num(damages.futureLostWages);
+  return {
+    incidentType: (intake.incidentType as string | undefined) ?? null,
+    incidentDate: (intake.incidentDate as string | undefined) ?? null,
+    totalDamages,
+    settlementStatus: (claim.settlementStatus as string | undefined) ?? null,
+    demandAmount: num(claim.demandAmount),
+    offerAmount: num(claim.offerAmount),
+  };
+}
+
+export function reStats(forms: Record<string, FormData>) {
+  const transaction = forms["re-transaction"] ?? {};
+  const property = forms["re-property"] ?? {};
+  const financing = forms["re-financing"] ?? {};
+  const propStreet = (property.propertyStreet as string | undefined) ?? "";
+  const propCity = (property.propertyCity as string | undefined) ?? "";
+  const propertyAddress = [propStreet, propCity].filter(Boolean).join(", ");
+  return {
+    transactionType: (transaction.transactionType as string | undefined) ?? null,
+    purchasePrice: num(transaction.purchasePrice),
+    expectedClosingDate: (transaction.expectedClosingDate as string | undefined) ?? null,
+    contractDate: (transaction.contractDate as string | undefined) ?? null,
+    propertyAddress,
+    financingType: (financing.financingType as string | undefined) ?? null,
+    loanAmount: num(financing.loanAmount),
+  };
+}

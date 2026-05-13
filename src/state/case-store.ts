@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import type { ChapterId } from "@/lib/schemas/types";
 import type { ExtractedDoc, ExtractionSource } from "@/lib/integrations/types";
 
@@ -50,6 +49,11 @@ export type CaseRecord = {
 type CaseStore = {
   cases: Record<string, CaseRecord>;
   activeCaseId: string | null;
+  isLoaded: boolean;
+
+  loadCase: (record: CaseRecord) => void;
+  setCases: (records: CaseRecord[]) => void;
+  setLoaded: () => void;
 
   createCase: (chapter: ChapterId) => string;
   setActiveCase: (id: string | null) => void;
@@ -182,24 +186,47 @@ function shiftAutofillOnRemove(
   return withFormAutofill(autofilled, formId, next);
 }
 
-const debtor1NameKeys = [
-  "debtor1NameFirst",
-  "debtor1NameMiddle",
-  "debtor1NameLast",
-];
-
 function deriveDebtorName(forms: Record<string, FormData>): string {
-  const f = forms["101"] ?? {};
-  const parts = debtor1NameKeys.map((k) => (f[k] as string | undefined) ?? "");
-  const joined = parts.filter(Boolean).join(" ").trim();
-  return joined;
+  // Bankruptcy: name comes from Form 101
+  const f101 = forms["101"];
+  if (f101) {
+    const parts = ["debtor1NameFirst", "debtor1NameMiddle", "debtor1NameLast"].map(
+      (k) => (f101[k] as string | undefined) ?? ""
+    );
+    const joined = parts.filter(Boolean).join(" ").trim();
+    if (joined) return joined;
+  }
+  // Personal injury / real estate: name comes from client intake forms
+  for (const formId of ["pi-intake", "re-parties"]) {
+    const f = forms[formId];
+    if (f) {
+      const parts = ["clientNameFirst", "clientNameMiddle", "clientNameLast"].map(
+        (k) => (f[k] as string | undefined) ?? ""
+      );
+      const joined = parts.filter(Boolean).join(" ").trim();
+      if (joined) return joined;
+    }
+  }
+  return "";
 }
 
-export const useCaseStore = create<CaseStore>()(
-  persist(
-    (set, get) => ({
+export const useCaseStore = create<CaseStore>()((set, get) => ({
       cases: {},
       activeCaseId: null,
+      isLoaded: false,
+
+      loadCase: (record) =>
+        set((s) => ({
+          cases: { ...s.cases, [record.id]: record },
+        })),
+
+      setCases: (records) => {
+        const cases: Record<string, CaseRecord> = {};
+        for (const r of records) cases[r.id] = r;
+        set({ cases, isLoaded: true });
+      },
+
+      setLoaded: () => set({ isLoaded: true }),
 
       createCase: (chapter) => {
         const id = uid();
@@ -251,7 +278,9 @@ export const useCaseStore = create<CaseStore>()(
           ) as FormData;
           const newForms = { ...c.forms, [formId]: updatedForm };
           const debtorName =
-            formId === "101" ? deriveDebtorName(newForms) : c.debtorName;
+            formId === "101" || formId === "pi-intake" || formId === "re-parties"
+              ? deriveDebtorName(newForms)
+              : c.debtorName;
           // A direct write clears the autofill mark; the review apply flow
           // re-marks the field afterwards via markAutofilled.
           const autofilled = clearAutofillAt(c.autofilled, formId, path);
@@ -440,14 +469,7 @@ export const useCaseStore = create<CaseStore>()(
         }));
         return id;
       },
-    }),
-    {
-      name: "case-builder:v1",
-      storage: createJSONStorage(() => localStorage),
-      version: 1,
-    }
-  )
-);
+    }));
 
 export function getAutofillMark(
   c: CaseRecord | undefined,

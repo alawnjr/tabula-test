@@ -1,5 +1,6 @@
 import { form101 } from "./form-101-petition";
 import { form107 } from "./form-107-sofa";
+import { form113 } from "./form-113-ch13plan";
 import { form122A1 } from "./form-122a1-cmi";
 import { form122A2 } from "./form-122a2-means";
 import { form122Result } from "./form-122result-eligibility";
@@ -12,6 +13,22 @@ import { schedule106H } from "./schedule-106h-codebtors";
 import { schedule106I } from "./schedule-106i-income";
 import { schedule106J } from "./schedule-106j-expenses";
 import { schedule106Sum } from "./schedule-106sum-summary";
+import { piRetainerNy } from "./pi-retainer-ny";
+import { piIntake } from "./pi-intake";
+import { piMedical } from "./pi-medical";
+import { piExperts } from "./pi-experts";
+import { piDamages } from "./pi-damages";
+import { piInsurance } from "./pi-insurance";
+import { piNoFaultNy } from "./pi-no-fault-ny";
+import { piClaim } from "./pi-claim";
+import { reParties } from "./re-parties";
+import { reProperty } from "./re-property";
+import { reContractNy } from "./re-contract-ny";
+import { reTransaction } from "./re-transaction";
+import { reFinancing } from "./re-financing";
+import { reTaxesNy } from "./re-taxes-ny";
+import { reDueDiligence } from "./re-due-diligence";
+import { reClosing } from "./re-closing";
 import type { ChapterId, FormSchema } from "./types";
 
 export const SCHEMAS: Record<string, FormSchema> = {
@@ -26,9 +43,26 @@ export const SCHEMAS: Record<string, FormSchema> = {
   "106J": schedule106J,
   "106Sum": schedule106Sum,
   "107": form107,
+  "113": form113,
   "122A-1": form122A1,
   "122A-2": form122A2,
   "122Result": form122Result,
+  "pi-retainer-ny": piRetainerNy,
+  "pi-intake": piIntake,
+  "pi-medical": piMedical,
+  "pi-experts": piExperts,
+  "pi-damages": piDamages,
+  "pi-insurance": piInsurance,
+  "pi-no-fault-ny": piNoFaultNy,
+  "pi-claim": piClaim,
+  "re-parties": reParties,
+  "re-property": reProperty,
+  "re-contract-ny": reContractNy,
+  "re-transaction": reTransaction,
+  "re-financing": reFinancing,
+  "re-taxes-ny": reTaxesNy,
+  "re-due-diligence": reDueDiligence,
+  "re-closing": reClosing,
 };
 
 export const FORM_ORDER: Record<ChapterId, string[]> = {
@@ -58,6 +92,27 @@ export const FORM_ORDER: Record<ChapterId, string[]> = {
     "106J",
     "106Sum",
     "107",
+    "113",
+  ],
+  personalInjury: [
+    "pi-retainer-ny",
+    "pi-intake",
+    "pi-medical",
+    "pi-experts",
+    "pi-damages",
+    "pi-insurance",
+    "pi-no-fault-ny",
+    "pi-claim",
+  ],
+  realEstate: [
+    "re-parties",
+    "re-property",
+    "re-contract-ny",
+    "re-transaction",
+    "re-financing",
+    "re-due-diligence",
+    "re-taxes-ny",
+    "re-closing",
   ],
 };
 
@@ -68,7 +123,16 @@ export function getSchema(formId: string): FormSchema | undefined {
 export function chapterLabel(chapter: ChapterId): string {
   if (chapter === "chapter7") return "Chapter 7";
   if (chapter === "chapter13") return "Chapter 13";
-  return "Means test";
+  if (chapter === "meansTest") return "Means test";
+  if (chapter === "personalInjury") return "Personal Injury";
+  if (chapter === "realEstate") return "Real Estate";
+  return chapter;
+}
+
+export function practiceAreaOf(chapter: ChapterId): "bankruptcy" | "personalInjury" | "realEstate" {
+  if (chapter === "personalInjury") return "personalInjury";
+  if (chapter === "realEstate") return "realEstate";
+  return "bankruptcy";
 }
 
 export * from "./types";

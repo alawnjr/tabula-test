@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { use } from "react";
 import { useCaseStore } from "@/state/case-store";
-import { FORM_ORDER, getSchema } from "@/lib/schemas";
+import { FORM_ORDER, getSchema, practiceAreaOf } from "@/lib/schemas";
 import { SummaryView } from "@/components/case/SummaryView";
 import { MeansTestResult } from "@/components/case/MeansTestResult";
+import { PISummaryView } from "@/components/case/PISummaryView";
+import { RESummaryView } from "@/components/case/RESummaryView";
 
 export default function CaseOverviewPage({
   params,
@@ -26,7 +28,11 @@ export default function CaseOverviewPage({
           style={{ fontFamily: "var(--serif)" }}
         >
           {record.debtorName || (
-            <em className="text-[var(--mute)]">Untitled debtor</em>
+            <em className="text-[var(--mute)]">
+              {practiceAreaOf(record.chapter) === "bankruptcy"
+                ? "Untitled debtor"
+                : "Untitled client"}
+            </em>
           )}
         </h1>
         <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--mute)]">
@@ -39,6 +45,10 @@ export default function CaseOverviewPage({
 
       {record.chapter === "meansTest" ? (
         <MeansTestResult caseId={caseId} />
+      ) : record.chapter === "personalInjury" ? (
+        <PISummaryView />
+      ) : record.chapter === "realEstate" ? (
+        <RESummaryView />
       ) : (
         <SummaryView />
       )}

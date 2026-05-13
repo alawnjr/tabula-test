@@ -25,9 +25,18 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
   const dataHref = `/case/${caseId}/data`;
   const overviewHref = `/case/${caseId}`;
   const reviewHref = `/case/${caseId}/review`;
+  const printHref = `/case/${caseId}/print`;
+  const filesHref = `/case/${caseId}/files`;
+  const assistantHref = `/case/${caseId}/assistant`;
 
   const meansTestIds = ["122A-1", "122A-2", "122Result"];
+  // Only show the linked means-test section for bankruptcy chapters (not PI/RE)
+  const isBankruptcy =
+    record.chapter === "chapter7" ||
+    record.chapter === "chapter13" ||
+    record.chapter === "meansTest";
   const hasMeansTestData =
+    isBankruptcy &&
     record.chapter !== "meansTest" &&
     meansTestIds.some(
       (id) => Object.keys(record.forms[id] ?? {}).length > 0
@@ -72,6 +81,21 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
           active={pathname === reviewHref}
           chip={reviewCount > 0 ? String(reviewCount) : undefined}
           chipTone={reviewCount > 0 ? "deep" : "muted"}
+        />
+        <SidebarLink
+          href={printHref}
+          label="Print / Export PDF"
+          active={pathname === printHref}
+        />
+        <SidebarLink
+          href={filesHref}
+          label="Files"
+          active={pathname === filesHref}
+        />
+        <SidebarLink
+          href={assistantHref}
+          label="Virtual Assistant"
+          active={pathname === assistantHref}
         />
       </div>
 
