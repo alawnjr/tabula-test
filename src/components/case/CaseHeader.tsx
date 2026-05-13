@@ -71,8 +71,6 @@ export function CaseHeader({ caseId }: { caseId: string }) {
             href={
               record.chapter === "personalInjury"
                 ? "/personal-injury"
-                : record.chapter === "realEstate"
-                ? "/real-estate"
                 : "/bankruptcy"
             }
             className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--mute)] hover:text-[var(--ink)] shrink-0"

@@ -19,15 +19,6 @@ const AREAS = [
       "Capture incident details, track medical treatment, calculate damages, and manage the full demand and negotiation process.",
     accent: false,
   },
-  {
-    href: "/real-estate",
-    label: "Real Estate",
-    badge: "RE",
-    title: "Transactions, closed cleanly.",
-    description:
-      "Coordinate parties, track contingencies, manage title and financing, and guide every matter to a smooth closing.",
-    accent: false,
-  },
 ];
 
 export default function LandingPage() {
@@ -43,7 +34,7 @@ export default function LandingPage() {
           </Link>
           <span className="pill">
             <span className="dot pulse" />
-            Three practice areas
+            Two practice areas
           </span>
         </div>
       </header>
@@ -60,11 +51,11 @@ export default function LandingPage() {
             <em>all in one place.</em>
           </h1>
           <p className="max-w-[52ch] text-[15px] font-light leading-relaxed text-[var(--ink-2)]">
-            Tabula covers bankruptcy, personal injury, and real estate. Choose your practice area to get started.
+            Tabula covers bankruptcy and personal injury. Choose your practice area to get started.
           </p>
         </section>
 
-        <section className="mt-16 grid gap-6 sm:grid-cols-3">
+        <section className="mt-16 grid gap-6 sm:grid-cols-2">
           {AREAS.map((area) => (
             <Link
               key={area.href}

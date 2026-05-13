@@ -46,8 +46,7 @@ export type ChapterId =
   | "chapter7"
   | "chapter13"
   | "meansTest"
-  | "personalInjury"
-  | "realEstate";
+  | "personalInjury";
 
 export type FormSchema = {
   id: string;

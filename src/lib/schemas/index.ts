@@ -21,14 +21,6 @@ import { piDamages } from "./pi-damages";
 import { piInsurance } from "./pi-insurance";
 import { piNoFaultNy } from "./pi-no-fault-ny";
 import { piClaim } from "./pi-claim";
-import { reParties } from "./re-parties";
-import { reProperty } from "./re-property";
-import { reContractNy } from "./re-contract-ny";
-import { reTransaction } from "./re-transaction";
-import { reFinancing } from "./re-financing";
-import { reTaxesNy } from "./re-taxes-ny";
-import { reDueDiligence } from "./re-due-diligence";
-import { reClosing } from "./re-closing";
 import type { ChapterId, FormSchema } from "./types";
 
 export const SCHEMAS: Record<string, FormSchema> = {
@@ -55,14 +47,6 @@ export const SCHEMAS: Record<string, FormSchema> = {
   "pi-insurance": piInsurance,
   "pi-no-fault-ny": piNoFaultNy,
   "pi-claim": piClaim,
-  "re-parties": reParties,
-  "re-property": reProperty,
-  "re-contract-ny": reContractNy,
-  "re-transaction": reTransaction,
-  "re-financing": reFinancing,
-  "re-taxes-ny": reTaxesNy,
-  "re-due-diligence": reDueDiligence,
-  "re-closing": reClosing,
 };
 
 export const FORM_ORDER: Record<ChapterId, string[]> = {
@@ -104,16 +88,6 @@ export const FORM_ORDER: Record<ChapterId, string[]> = {
     "pi-no-fault-ny",
     "pi-claim",
   ],
-  realEstate: [
-    "re-parties",
-    "re-property",
-    "re-contract-ny",
-    "re-transaction",
-    "re-financing",
-    "re-due-diligence",
-    "re-taxes-ny",
-    "re-closing",
-  ],
 };
 
 export function getSchema(formId: string): FormSchema | undefined {
@@ -125,13 +99,11 @@ export function chapterLabel(chapter: ChapterId): string {
   if (chapter === "chapter13") return "Chapter 13";
   if (chapter === "meansTest") return "Means test";
   if (chapter === "personalInjury") return "Personal Injury";
-  if (chapter === "realEstate") return "Real Estate";
   return chapter;
 }
 
-export function practiceAreaOf(chapter: ChapterId): "bankruptcy" | "personalInjury" | "realEstate" {
+export function practiceAreaOf(chapter: ChapterId): "bankruptcy" | "personalInjury" {
   if (chapter === "personalInjury") return "personalInjury";
-  if (chapter === "realEstate") return "realEstate";
   return "bankruptcy";
 }
 

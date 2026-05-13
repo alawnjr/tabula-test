@@ -196,16 +196,14 @@ function deriveDebtorName(forms: Record<string, FormData>): string {
     const joined = parts.filter(Boolean).join(" ").trim();
     if (joined) return joined;
   }
-  // Personal injury / real estate: name comes from client intake forms
-  for (const formId of ["pi-intake", "re-parties"]) {
-    const f = forms[formId];
-    if (f) {
-      const parts = ["clientNameFirst", "clientNameMiddle", "clientNameLast"].map(
-        (k) => (f[k] as string | undefined) ?? ""
-      );
-      const joined = parts.filter(Boolean).join(" ").trim();
-      if (joined) return joined;
-    }
+  // Personal injury: name comes from client intake form
+  const fIntake = forms["pi-intake"];
+  if (fIntake) {
+    const parts = ["clientNameFirst", "clientNameMiddle", "clientNameLast"].map(
+      (k) => (fIntake[k] as string | undefined) ?? ""
+    );
+    const joined = parts.filter(Boolean).join(" ").trim();
+    if (joined) return joined;
   }
   return "";
 }
@@ -278,7 +276,7 @@ export const useCaseStore = create<CaseStore>()((set, get) => ({
           ) as FormData;
           const newForms = { ...c.forms, [formId]: updatedForm };
           const debtorName =
-            formId === "101" || formId === "pi-intake" || formId === "re-parties"
+            formId === "101" || formId === "pi-intake"
               ? deriveDebtorName(newForms)
               : c.debtorName;
           // A direct write clears the autofill mark; the review apply flow

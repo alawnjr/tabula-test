@@ -238,20 +238,3 @@ export function piStats(forms: Record<string, FormData>) {
   };
 }
 
-export function reStats(forms: Record<string, FormData>) {
-  const transaction = forms["re-transaction"] ?? {};
-  const property = forms["re-property"] ?? {};
-  const financing = forms["re-financing"] ?? {};
-  const propStreet = (property.propertyStreet as string | undefined) ?? "";
-  const propCity = (property.propertyCity as string | undefined) ?? "";
-  const propertyAddress = [propStreet, propCity].filter(Boolean).join(", ");
-  return {
-    transactionType: (transaction.transactionType as string | undefined) ?? null,
-    purchasePrice: num(transaction.purchasePrice),
-    expectedClosingDate: (transaction.expectedClosingDate as string | undefined) ?? null,
-    contractDate: (transaction.contractDate as string | undefined) ?? null,
-    propertyAddress,
-    financingType: (financing.financingType as string | undefined) ?? null,
-    loanAmount: num(financing.loanAmount),
-  };
-}

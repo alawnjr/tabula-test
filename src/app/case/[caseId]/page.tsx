@@ -7,7 +7,6 @@ import { FORM_ORDER, getSchema, practiceAreaOf } from "@/lib/schemas";
 import { SummaryView } from "@/components/case/SummaryView";
 import { MeansTestResult } from "@/components/case/MeansTestResult";
 import { PISummaryView } from "@/components/case/PISummaryView";
-import { RESummaryView } from "@/components/case/RESummaryView";
 
 export default function CaseOverviewPage({
   params,
@@ -47,8 +46,6 @@ export default function CaseOverviewPage({
         <MeansTestResult caseId={caseId} />
       ) : record.chapter === "personalInjury" ? (
         <PISummaryView />
-      ) : record.chapter === "realEstate" ? (
-        <RESummaryView />
       ) : (
         <SummaryView />
       )}

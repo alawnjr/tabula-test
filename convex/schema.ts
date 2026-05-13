@@ -8,8 +8,7 @@ export default defineSchema({
       v.literal("chapter7"),
       v.literal("chapter13"),
       v.literal("meansTest"),
-      v.literal("personalInjury"),
-      v.literal("realEstate")
+      v.literal("personalInjury")
     ),
     debtorName: v.string(),
     createdAt: v.string(),

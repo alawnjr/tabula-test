@@ -14,7 +14,7 @@ import { useCaseStore, type CaseRecord } from "@/state/case-store";
 import { chapterLabel } from "@/lib/schemas";
 import { ImportExport } from "@/components/case/ImportExport";
 import { ConvexStoreSync } from "@/components/ConvexStoreSync";
-import { caseSummary, piStats, reStats } from "@/lib/derived";
+import { caseSummary, piStats } from "@/lib/derived";
 import { computeMeansTest } from "@/lib/meansTest";
 import { formatCurrency } from "@/lib/currency";
 import type { ChapterId } from "@/lib/schemas/types";
@@ -27,14 +27,6 @@ const INCIDENT_TYPE_LABELS: Record<string, string> = {
   "product-liability": "Product liability",
   "premises-liability": "Premises liability",
   "other": "Other",
-};
-
-const TX_TYPE_LABELS: Record<string, string> = {
-  "purchase": "Purchase",
-  "sale": "Sale",
-  "refinance": "Refinance",
-  "lease": "Lease",
-  "exchange": "1031 Exchange",
 };
 
 export type CreateOption = {
@@ -91,8 +83,6 @@ export function PracticeAreaDashboard({
         ? "122A-1"
         : chapter === "personalInjury"
         ? "pi-intake"
-        : chapter === "realEstate"
-        ? "re-parties"
         : "101";
     const now = new Date().toISOString();
     const forms: Record<string, Record<string, unknown>> =
@@ -408,36 +398,6 @@ function CaseStats({ record }: { record: CaseRecord }) {
           label="Est. damages"
           value={s.totalDamages > 0 ? formatCurrency(s.totalDamages) : "—"}
           accent={s.totalDamages > 0}
-        />
-      </>
-    );
-  }
-  if (record.chapter === "realEstate") {
-    const s = reStats(record.forms);
-    return (
-      <>
-        <Stat
-          label="Transaction"
-          value={
-            s.transactionType
-              ? (TX_TYPE_LABELS[s.transactionType] ?? s.transactionType)
-              : "—"
-          }
-        />
-        <Stat
-          label="Price"
-          value={s.purchasePrice > 0 ? formatCurrency(s.purchasePrice) : "—"}
-          accent={s.purchasePrice > 0}
-        />
-        <Stat
-          label="Closing"
-          value={
-            s.expectedClosingDate
-              ? new Date(s.expectedClosingDate).toLocaleDateString(undefined, {
-                  dateStyle: "medium",
-                })
-              : "—"
-          }
         />
       </>
     );
