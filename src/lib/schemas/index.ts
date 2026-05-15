@@ -21,6 +21,15 @@ import { piDamages } from "./pi-damages";
 import { piInsurance } from "./pi-insurance";
 import { piNoFaultNy } from "./pi-no-fault-ny";
 import { piClaim } from "./pi-claim";
+import { piNf2Form } from "./pi-nf2-form";
+import { piNf10Form } from "./pi-nf10-form";
+import { piNfAobForm } from "./pi-nf-aob-form";
+import { piMv104Form } from "./pi-mv104-form";
+import { piNoticeOfClaim } from "./pi-notice-of-claim";
+import { piRji } from "./pi-rji";
+import { piNoteOfIssue } from "./pi-note-of-issue";
+import { piSummons } from "./pi-summons";
+import { piStipDiscontinuance } from "./pi-stip-discontinuance";
 import { eaIntake } from "./ea-intake";
 import { eaDecedent } from "./ea-decedent";
 import { eaWill } from "./ea-will";
@@ -55,6 +64,15 @@ export const SCHEMAS: Record<string, FormSchema> = {
   "pi-insurance": piInsurance,
   "pi-no-fault-ny": piNoFaultNy,
   "pi-claim": piClaim,
+  "pi-nf2-form": piNf2Form,
+  "pi-nf10-form": piNf10Form,
+  "pi-nf-aob-form": piNfAobForm,
+  "pi-mv104-form": piMv104Form,
+  "pi-notice-of-claim": piNoticeOfClaim,
+  "pi-rji": piRji,
+  "pi-note-of-issue": piNoteOfIssue,
+  "pi-summons": piSummons,
+  "pi-stip-discontinuance": piStipDiscontinuance,
   "ea-intake": eaIntake,
   "ea-decedent": eaDecedent,
   "ea-will": eaWill,
@@ -103,6 +121,15 @@ export const FORM_ORDER: Record<ChapterId, string[]> = {
     "pi-insurance",
     "pi-no-fault-ny",
     "pi-claim",
+    "pi-nf2-form",
+    "pi-nf10-form",
+    "pi-nf-aob-form",
+    "pi-mv104-form",
+    "pi-notice-of-claim",
+    "pi-summons",
+    "pi-rji",
+    "pi-note-of-issue",
+    "pi-stip-discontinuance",
   ],
   estateAdmin: [
     "ea-intake",
