@@ -27,6 +27,7 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
   const reviewHref = `/case/${caseId}/review`;
   const printHref = `/case/${caseId}/print`;
   const filesHref = `/case/${caseId}/files`;
+  const tableHref = `/case/${caseId}/tabular-review`;
   const assistantHref = `/case/${caseId}/assistant`;
   const calendarHref = `/case/${caseId}/calendar`;
   const taxHref = `/case/${caseId}/tax`;
@@ -95,6 +96,11 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
           href={filesHref}
           label="Files"
           active={pathname === filesHref}
+        />
+        <SidebarLink
+          href={tableHref}
+          label="Tabular review"
+          active={pathname === tableHref}
         />
         <SidebarLink
           href={assistantHref}
