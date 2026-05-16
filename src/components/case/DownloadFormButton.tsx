@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { fillPdf, downloadPdf } from "@/lib/pdf/fillPdf";
 import { buildFieldMap, FORM_PDF_FILE, type FormMapperKey } from "@/lib/pdf/mappers";
+import { generateSchemaPdf } from "@/lib/pdf/schemaPdf";
+import { getSchema } from "@/lib/schemas";
 import type { CaseRecord } from "@/state/case-store";
 
 interface Props {
@@ -15,14 +17,24 @@ export function DownloadFormButton({ formId, record, label }: Props) {
   const [loading, setLoading] = useState(false);
 
   const pdfFile = FORM_PDF_FILE[formId as FormMapperKey];
-  if (!pdfFile) return null;
+  const schema = getSchema(formId);
+  // Either an official template exists, or the schema can be rendered programmatically.
+  if (!pdfFile && !schema) return null;
 
   async function handleClick() {
     setLoading(true);
     try {
-      const fields = buildFieldMap(formId as FormMapperKey, record);
-      const bytes = await fillPdf(pdfFile, fields);
-      const slug = record.debtorName?.replace(/\s+/g, "-").toLowerCase() || "debtor";
+      const slug = record.debtorName?.replace(/\s+/g, "-").toLowerCase() || "case";
+      let bytes: Uint8Array;
+      if (pdfFile) {
+        const fields = buildFieldMap(formId as FormMapperKey, record);
+        bytes = await fillPdf(pdfFile, fields);
+      } else if (schema) {
+        const formData = record.forms[formId] ?? {};
+        bytes = await generateSchemaPdf(schema, record, formData);
+      } else {
+        return;
+      }
       downloadPdf(bytes, `${slug}-form-${formId}.pdf`);
     } finally {
       setLoading(false);

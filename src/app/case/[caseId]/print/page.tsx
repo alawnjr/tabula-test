@@ -12,6 +12,7 @@ import { computeMeansTest } from "@/lib/meansTest";
 import { DownloadFormButton } from "@/components/case/DownloadFormButton";
 import { FORM_PDF_FILE, buildFieldMap, type FormMapperKey } from "@/lib/pdf/mappers";
 import { fillPdf, downloadPdf } from "@/lib/pdf/fillPdf";
+import { generateSchemaPdf } from "@/lib/pdf/schemaPdf";
 
 function formatValue(field: Field, value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
@@ -126,17 +127,28 @@ function DownloadAllButton({
 }) {
   const [loading, setLoading] = useState(false);
 
-  const pdfFormIds = formIds.filter((id) => id in FORM_PDF_FILE);
+  const pdfFormIds = formIds.filter((id) => {
+    if (id in FORM_PDF_FILE) return true;
+    const s = getSchema(id);
+    return Boolean(s) && !s?.derived;
+  });
 
   async function handleDownloadAll() {
     setLoading(true);
     try {
-      const slug = record.debtorName?.replace(/\s+/g, "-").toLowerCase() || "debtor";
+      const slug = record.debtorName?.replace(/\s+/g, "-").toLowerCase() || "case";
       for (let i = 0; i < pdfFormIds.length; i++) {
         const formId = pdfFormIds[i];
-        const templateUrl = FORM_PDF_FILE[formId as FormMapperKey];
-        const fields = buildFieldMap(formId as FormMapperKey, record);
-        const bytes = await fillPdf(templateUrl, fields);
+        let bytes: Uint8Array;
+        if (formId in FORM_PDF_FILE) {
+          const templateUrl = FORM_PDF_FILE[formId as FormMapperKey];
+          const fields = buildFieldMap(formId as FormMapperKey, record);
+          bytes = await fillPdf(templateUrl, fields);
+        } else {
+          const schema = getSchema(formId);
+          if (!schema) continue;
+          bytes = await generateSchemaPdf(schema, record, record.forms[formId] ?? {});
+        }
         downloadPdf(bytes, `${slug}-form-${formId}.pdf`);
         if (i < pdfFormIds.length - 1) {
           await new Promise((r) => setTimeout(r, 300));
@@ -227,9 +239,20 @@ export default function PrintPage({
         <DownloadAllButton formIds={formIds} record={record} />
         <span className="text-[var(--rule)] select-none">|</span>
         <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--mute)]">Per form:</span>
-        {formIds.filter((id) => id in FORM_PDF_FILE).map((id) => (
-          <DownloadFormButton key={id} formId={id} record={record} label={`Form ${id}`} />
-        ))}
+        {formIds
+          .filter((id) => {
+            if (id in FORM_PDF_FILE) return true;
+            const s = getSchema(id);
+            return Boolean(s) && !s?.derived;
+          })
+          .map((id) => (
+            <DownloadFormButton
+              key={id}
+              formId={id}
+              record={record}
+              label={getSchema(id)?.title ?? `Form ${id}`}
+            />
+          ))}
       </div>
 
       <div className="print-content mx-auto max-w-3xl px-4 py-8 lg:px-8">
