@@ -93,6 +93,13 @@ export const update = mutation({
     const existing = await ctx.db.get(id);
     if (!existing || existing.userId !== identity.subject)
       throw new Error("Not found");
+    // Merge top-level data keys instead of replacing the blob, so sibling
+    // keys written by dedicated mutations (debtorUploads, reviewTable) are
+    // not clobbered by the case-store's forms/bankData/autofilled push.
+    if (patch.data !== undefined) {
+      const prev = (existing.data ?? {}) as Record<string, unknown>;
+      patch.data = { ...prev, ...(patch.data as Record<string, unknown>) };
+    }
     await ctx.db.patch(id, patch);
   },
 });
@@ -320,5 +327,47 @@ export const deleteUpload = mutation({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filtered = uploads.filter((u: any) => u.uploadedAt !== uploadedAt);
     await ctx.db.patch(id, { data: { ...data, debtorUploads: filtered } });
+  },
+});
+
+// ---- Tabular review ("matrix" extraction grid) ----------------------------
+// Stored under data.reviewTable as { columns: [...], rows: [...] }. Kept in a
+// dedicated key (not synced through the case-store) so it round-trips through
+// the merge in `update` above.
+
+export const getReviewTable = query({
+  args: { id: v.id("cases") },
+  handler: async (ctx, { id }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    const c = await ctx.db.get(id);
+    if (!c || c.userId !== identity.subject) return null;
+    const data = (c.data ?? {}) as Record<string, unknown>;
+    return (data.reviewTable as unknown) ?? { columns: [], rows: [] };
+  },
+});
+
+export const saveReviewTable = mutation({
+  args: { id: v.id("cases"), table: v.any() },
+  handler: async (ctx, { id, table }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const existing = await ctx.db.get(id);
+    if (!existing || existing.userId !== identity.subject)
+      throw new Error("Not found");
+    const data = (existing.data ?? {}) as Record<string, unknown>;
+    await ctx.db.patch(id, { data: { ...data, reviewTable: table } });
+  },
+});
+
+// Resolve a viewable URL for a stored review-grid source file.
+export const reviewFileUrl = query({
+  args: { id: v.id("cases"), storageId: v.string() },
+  handler: async (ctx, { id, storageId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    const c = await ctx.db.get(id);
+    if (!c || c.userId !== identity.subject) return null;
+    return await ctx.storage.getUrl(storageId as Id<"_storage">);
   },
 });

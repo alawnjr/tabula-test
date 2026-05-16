@@ -155,6 +155,77 @@ export const extractFromStorage = action({
   },
 });
 
+// ---- Per-cell extraction for the tabular-review grid ----------------------
+// Given one source file and one free-form column prompt, return a single
+// short value. Used by the spreadsheet "run" actions.
+
+export const extractField = action({
+  args: {
+    storageId: v.id("_storage"),
+    columnName: v.string(),
+    prompt: v.string(),
+    filename: v.optional(v.string()),
+    mimeType: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    { storageId, columnName, prompt, filename = "upload", mimeType = "application/pdf" }
+  ): Promise<{ value: string }> => {
+    const url = await ctx.storage.getUrl(storageId);
+    if (!url) throw new Error("File not found in storage");
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return {
+        value: `[DEMO] ${columnName} from ${filename} — add ANTHROPIC_API_KEY for real extraction.`,
+      };
+    }
+
+    const fileRes = await fetch(url);
+    const bytes = new Uint8Array(await fileRes.arrayBuffer());
+    const base64 = Buffer.from(bytes).toString("base64");
+    const isPdf = mimeType === "application/pdf";
+    type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+    const system = `You are a precise data-extraction assistant. From the attached document, extract exactly one piece of information.
+
+Column: "${columnName}"
+What to extract: ${prompt}
+
+Respond with ONLY the extracted value as a short plain-text string. No labels, no quotes, no JSON, no markdown, no explanation. If the document does not contain the answer, respond with exactly: N/A`;
+
+    const client = new Anthropic({ apiKey });
+    const userContent: Anthropic.MessageParam["content"] = [
+      isPdf
+        ? ({
+            type: "document",
+            source: { type: "base64", media_type: "application/pdf", data: base64 },
+          } as Anthropic.DocumentBlockParam)
+        : ({
+            type: "image",
+            source: { type: "base64", media_type: mimeType as ImageMediaType, data: base64 },
+          } as Anthropic.ImageBlockParam),
+      { type: "text", text: "Extract the requested value. Plain text only." },
+    ];
+
+    const resp = await client.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 512,
+      system,
+      messages: [{ role: "user", content: userContent }],
+    });
+
+    const value = resp.content
+      .flatMap((b) => (b.type === "text" ? [b.text] : []))
+      .join(" ")
+      .trim()
+      .replace(/^["'`]+|["'`]+$/g, "")
+      .trim();
+
+    return { value: value || "N/A" };
+  },
+});
+
 function mockExtracted(
   filename: string,
   storageId: string,
